@@ -18,6 +18,7 @@ export interface NavGroup {
 export interface NavItem {
     title: string;
     href: NonNullable<InertiaLinkProps['href']>;
+    roles?: string[];
     icon?: LucideIcon | null;
     isActive?: boolean;
 }

@@ -1,7 +1,7 @@
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
-import { Users, ShieldCheck, Lock, Calendar } from 'lucide-react';
+import { Users, ShieldCheck, Lock, Calendar, Gift } from 'lucide-react';
 import {
     Sidebar,
     SidebarContent,
@@ -16,6 +16,7 @@ import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
 import { BookOpen, Folder, LayoutGrid } from 'lucide-react';
 import AppLogo from './app-logo';
+import { useRoles } from '@/lib/useRoles';
 
 const mainNavItems: NavItem[] = [
     {
@@ -27,53 +28,75 @@ const mainNavItems: NavItem[] = [
         title: 'Users',
         href: '/admin/users',
         icon: Users,
+        roles: ['owner']
     },
     {
         title: 'Projects',
         href: '/projects',
         icon: Folder,
+        roles: ['owner']
     },
     {
         title: 'Roles',
         href: '/admin/roles',
         icon: ShieldCheck,
+        roles: ['owner']
     },
     {
         title: 'Deposits',
         href: '/deposits',
         
         icon: Lock,
+        roles: ['owner']
     },
     {
         title: 'Sales shifts',
         href: '/shifts',
         icon: Calendar,
+        roles: ['owner']
     },
     {
         title: 'Commissions',
         href: '/commissions',
         icon: BookOpen,
+        roles: ['owner']
+
     },
     {
         title: 'Currencies',
         href: '/currencies',
         icon: BookOpen,
+        roles: ['owner']
+
     },
     {
         title: 'Fines',
         href: '/fines',
         icon: BookOpen,
+        roles: ['owner']
+
     },
     {
         title: 'KPI',
         href: '/kpi',
         icon: BookOpen,
+        roles: ['owner']
+
     },
     {
         title: 'Spend',
         href: '/spend',
         icon: BookOpen,
-    }
+        roles: ['owner']
+
+    },
+    {
+        title: 'Bonus',
+        href: '/bonus',
+        icon: Gift,
+        roles: ['owner']
+
+    },
 ];
 
 const footerNavItems: NavItem[] = [
@@ -90,6 +113,7 @@ const footerNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>

@@ -8,6 +8,8 @@ use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\FineController;
 use App\Http\Controllers\KpiController;
 use App\Http\Controllers\SpendController;
+use App\Http\Controllers\BonusController;
+use App\Http\Controllers\SalarySchemeController;
 
 Route::post('/deposits', [DepositController::class, 'storeApi']);
 Route::patch('/deposits/{deposit}', [DepositController::class, 'updateApi']);
@@ -22,3 +24,7 @@ Route::post('/kpi', [KpiController::class, 'storeApi']);
 Route::patch('/kpi/{kpi}', [KpiController::class, 'updateApi']);
 Route::post('/spend', [SpendController::class, 'storeApi']);
 Route::patch('/spend/{spend}', [SpendController::class, 'updateApi']);
+Route::post('/bonus', [BonusController::class, 'storeApi']);
+Route::patch('/bonus/{spend}', [BonusController::class, 'updateApi']);
+Route::post('/salary-scheme', [SalarySchemeController::class, 'storeApi']);
+Route::patch('/salary-scheme/{salaryScheme}', [SalarySchemeController::class, 'updateApi']);

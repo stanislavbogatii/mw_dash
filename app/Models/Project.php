@@ -50,4 +50,9 @@ class Project extends Model
     {
         return $this->hasMany(Spend::class);
     }
+
+    public function bonuses()
+    {
+        return $this->hasMany(Bonus::class);
+    }
 }

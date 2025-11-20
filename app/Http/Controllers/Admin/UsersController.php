@@ -12,10 +12,39 @@ class UsersController extends Controller
 {
     public function index()
     {
+        $search = request('search');
+        $roles  = request('roles');
+
+        $users = User::with('roles');
+
+        if ($search) {
+            $users = $users->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                ->orWhere('username', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%");
+            });            
+        }
+
+        if ($roles) {
+            $users = $users->whereHas('roles', function ($q) use ($roles) {
+                $q->whereIn('roles.id', $roles);
+            });
+        }
+
+        $users = $users->get();
+
+            
+
         return Inertia::render('admin/users/index', [
-            'users' => User::with('roles')->get(),
+            'users' => $users,
+            'filters' => [
+                'search' => $search,
+                'roles'  => $roles,
+            ],
+            'roles' => Role::select('id', 'name')->get(),
         ]);
     }
+
 
     public function create()
     {
@@ -28,12 +57,13 @@ class UsersController extends Controller
     {
         $validated = $request->validate([
             'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['email'],
+            'email'    => ['nullable', 'email'],
             'password' => ['required', 'string', 'min:6'],
             'username' => ['required', 'string', 'unique:users,username'],
             'roles'    => ['array'],
             'roles.*'  => ['string'],
         ]);
+
         $user = User::create([
             'name'     => $validated['name'],
             'email'    => $validated['email'],
@@ -60,9 +90,9 @@ class UsersController extends Controller
     {
         $validated = $request->validate([
             'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['email'],
+            'email'    => ['nullable', 'email'],
             'password' => ['nullable', 'string'],
-            'username' => ['required', 'string', 'unique:users,username,' . $user->username],
+            'username' => ['required', 'string', 'unique:users,username,' . $user->id],
             'roles' => ['array'],
             'roles.*' => ['string'],
         ]);

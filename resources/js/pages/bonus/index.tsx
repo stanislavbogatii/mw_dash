@@ -5,40 +5,23 @@ import { type BreadcrumbItem } from '@/types';
 import { Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-enum FineType {
-    FD = 'FD',
-    RD = 'RD',
-    BUYING = 'BUYING',
-    OTHER = 'OTHER',
-}
-
-const FineTypeSettings = {
-    FD: { label: "FD", classes: "!bg-yellow-400" },
-    RD: { label: "RD", classes: "!bg-red-400" },
-    BUYING: { label: "BUYING", classes: "!bg-blue-400" },
-    OTHER: { label: "OTHER", classes: "!bg-gray-400" },
-} as const;
-
 
 type Project = { id: number; name: string };
 
 type Filters = {
     dateStart?: string;
     dateEnd?: string;
-    user_id?: string;
-    type?: FineType;
     project_id?: string;
+    user_id?: string
 };
 
-type Fine = {
+type Bonus = {
     id: number;
     date: Date;
-    amount: number;
     project_id: number;
+    comment: string;
     user_id: number;
-    type: FineType;
-    user: User;
-    project: Project;
+    amount: number;
 }
 
 type User = {
@@ -49,15 +32,15 @@ type User = {
 type Props = {
     projects: Project[];
     filters: Filters;
-    fines: Fine[];
+    bonus: Bonus[];
     users: User[]
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Fines', href: '/fines' },
+    { title: 'Bonus', href: '/bonus' },
 ];
 
-export default function FineIndex({ fines, projects, users, filters }: Props) {
+export default function BonusIndex({ bonus, projects, users, filters }: Props) {
     const bottomRef = useRef<HTMLDivElement | null>(null);
 
     const scrollToBottom = () => {
@@ -73,10 +56,8 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
     const [filterState, setFilterState] = useState({
         dateStart: filters.dateStart || new Date().toISOString().slice(0, 10),
         dateEnd: filters.dateEnd || "",
-        user_id: filters.user_id || "",
-        type: filters.type || "",
         project_id: filters.project_id || "",
-
+        user_id: filters.user_id || "",
     });
 
     const updateFilter = (key: string, value: any) => {
@@ -90,7 +71,7 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
             if (value) params.set(key, value);
         });
 
-        router.visit(`/fines?${params.toString()}`, {
+        router.visit(`/bonus?${params.toString()}`, {
             preserveScroll: true,
             preserveState: false,
         });
@@ -98,24 +79,24 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
 
 
     const [rows, setRows] = useState(() => 
-        fines.map(s => ({
-            ...s,
-            date: new Date(s.date),
-            id: s.id,
-            user_id: s.user_id,
-            type: s.type,
-            user: s.user,
-            amount: s.amount,
-            project_id: s.project_id,
-            project: s.project
+        bonus.map(k => ({
+            ...k,
+            date: new Date(k.date),
+            id: k.id,
+            comment: k.comment,
+            project: projects.find(p => p.id === k.project_id),
+            project_id: k.project_id,
+            user_id: k.user_id,
+            amount: k.amount,
+            user: users.find(u => u.id === k.user_id)
         }))
     );
 
 
-    const saveRow = async (row: Fine) => {
+    const saveRow = async (row: Bonus) => {
         const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
 
-        const response = await fetch(`/api/fines/${row.id}`, {
+        const response = await fetch(`/api/bonus/${row.id}`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -128,7 +109,7 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
         const data = await response.json();
 
         if (response.ok) {
-            toast.success('Fine updated successfully');
+            toast.success('Bonus updated successfully');
         }
         else {
             toast.error(data.message);
@@ -152,19 +133,19 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
         triggerSave(changedRow!);
     };
 
-    // new fine form
+    // new bonus form
     const [form, setForm] = useState({
         date: '',
+        project_id: '',
         user_id: '',
-        type: 'FD',
+        comment: '',
         amount: '',
-        project_id: ''
     });
 
-    const saveNewFine = async () => {
+    const saveNewBonus = async () => {
         const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
 
-        const response = await fetch('/api/fines', {
+        const response = await fetch('/api/bonus', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -180,12 +161,12 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
 
             const newRows = [
                 {
-                    ...data.fine,
-                    date: data.fine.date,
-                    user_id: data.fine.user_id,
-                    type: data.fine.type,
-                    amount: data.fine.amount,
-                    project_id: data.fine.project_id,
+                    ...data.bonus,
+                    date: data.bonus.date,
+                    comment: data.bonus.comment,
+                    project_id: data.bonus.project_id,
+                    user_id: data.bonus.user_id,
+                    amount: data.bonus.amount
                 },
                 ...rows
             ]
@@ -194,19 +175,19 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
 
             setForm({
                 date: '',
+                project_id: '',
+                comment: '',
                 user_id: '',
-                type: 'FD',
                 amount: '',
-                project_id: ''
             });
-            toast.success('Fine created successfully');
+            toast.success('Bonus created successfully');
         }
     };
 
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Fines" />
+            <Head title="Bonus" />
 
             <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div className="relative min-h-[400px] overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border bg-white dark:bg-neutral-900">
@@ -215,7 +196,7 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
                         <div className="flex">
                             <h1 className="text-2xl font-semibold flex items-center gap-2">
                                 <Calendar className="w-6 h-6" />
-                                Fines
+                                Bonus
                             </h1>
                             
                             <button 
@@ -255,21 +236,6 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
                                     />
                                 </div>
 
-                                {/* USER */}
-                                <div className="flex flex-col">
-                                    <label className="text-sm font-medium mb-1">User</label>
-                                    <select
-                                        value={filterState.user_id || ""}
-                                        onChange={e => updateFilter("user_id", e.target.value)}
-                                        className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
-                                    >
-                                        <option value="">All</option>
-                                        {users.map(u => (
-                                            <option key={u.id} value={u.id}>{u.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
                                 {/* PROJECT */}
                                 <div className="flex flex-col">
                                     <label className="text-sm font-medium mb-1">Project</label>
@@ -285,23 +251,20 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
                                     </select>
                                 </div>
 
-                                {/* TYPE */}
+                                {/* USER */}
                                 <div className="flex flex-col">
-                                    <label className="text-sm font-medium mb-1">Type</label>
+                                    <label className="text-sm font-medium mb-1">User</label>
                                     <select
-                                        value={filterState.type || ""}
-                                        onChange={e => updateFilter("type", e.target.value)}
+                                        value={filterState.user_id || ""}
+                                        onChange={e => updateFilter("user_id", e.target.value)}
                                         className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
                                     >
                                         <option value="">All</option>
-                                        <option value="FD">FD</option>
-                                        <option value="RD">RD</option>
-                                        <option value="BUYING">BUYING</option>
-                                        <option value="OTHER">OTHER</option>
+                                        {users.map(u => (
+                                            <option key={u.id} value={u.id}>{u.name}</option>
+                                        ))}
                                     </select>
                                 </div>
-
-
                             </div>
 
                             {/* BUTTONS */}
@@ -314,7 +277,7 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
                                 </button>
 
                                 <button
-                                    onClick={() => router.visit('/fines')}
+                                    onClick={() => router.visit('/bonus')}
                                     className="px-4 py-2 bg-neutral-300 dark:bg-neutral-700 rounded hover:opacity-70"
                                 >
                                     Reset
@@ -326,10 +289,10 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
                             <thead>
                                 <tr className="bg-neutral-100 dark:bg-neutral-800">
                                     <th className="px-3 py-2 text-left">Date</th>
-                                    <th className="px-3 py-2 text-left">Amount</th>
-                                    <th className="px-3 py-2 text-left">Type</th>
-                                    <th className="px-3 py-2 text-left">User</th>
                                     <th className="px-3 py-2 text-left">Project</th>
+                                    <th className="px-3 py-2 text-left">User</th>
+                                    <th className="px-3 py-2 text-right">Amount</th>
+                                    <th className="px-3 py-2 text-right">Comment</th>
                                     <th className="px-3 py-2 text-right"></th>
                                 </tr>
                             </thead>
@@ -350,53 +313,6 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
                                             />
                                         </td>
 
-                                        {/* AMOUNT */}
-                                        <td className="px-3 py-2">
-                                            <input
-                                                type="number"
-                                                value={+row.amount}
-                                                onChange={e => handleChange(row.id, "amount", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
-                                            />
-                                        </td>
-
-                                        {/* TYPE */}
-                                        <td className="px-3 py-2">
-                                            <select
-                                                value={row.type}
-                                                onChange={e => handleChange(row.id, "type", e.target.value)}
-                                                className={"w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"}
-                                            >
-                                                {Object.entries(FineTypeSettings).map(([key, val]) => (
-                                                    <option key={key} value={key}>{val.label}</option>
-                                                ))}
-                                            </select>
-                                        </td>
-
-                                        {/* Name */}
-                                        {/* <td className="px-3 py-2">
-                                            <input
-                                                type="text"
-                                                value={row.name}
-                                                onChange={e => handleChange(row.id, "name", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
-                                            />
-                                        </td> */}
-
-                                        {/* USER */}
-                                        <td className="px-3 py-2">
-                                            <select
-                                                value={row.user_id}
-                                                onChange={e => handleChange(row.id, "user_id", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
-                                            >
-                                                <option value="">-</option>
-                                                {users.map(p => (
-                                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                                ))}
-                                            </select>
-                                        </td>
-
                                         {/* PROJECT */}
                                         <td className="px-3 py-2">
                                             <select
@@ -411,7 +327,39 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
                                             </select>
                                         </td>
 
-                                        <td></td>
+                                        {/* USER */}
+                                        <td className="px-3 py-2">
+                                            <select
+                                                value={row.user_id}
+                                                onChange={e => handleChange(row.id, "user_id", e.target.value)}
+                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                            >
+                                                <option value="">-</option>
+                                                {users.map(u => (
+                                                    <option key={u.id} value={u.id}>{u.name}</option>
+                                                ))}
+                                            </select>
+                                        </td>
+
+                                        {/* AMOUNT */}
+                                        <td className="px-3 py-2 text-right">
+                                            <input
+                                                type="number"
+                                                value={row.amount}
+                                                onChange={e => handleChange(row.id, "amount", e.target.value)}
+                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                            />
+                                        </td>
+
+                                        {/* COMMENT */}
+                                        <td className="px-3 py-2 text-right">
+                                            <input
+                                                type="text"
+                                                value={row.comment}
+                                                onChange={e => handleChange(row.id, "comment", e.target.value)}
+                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                            />
+                                        </td>
                                     </tr>
                                 ))}
 
@@ -427,51 +375,6 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
                                     </td>
 
                                     <td className="px-3 py-2">
-                                        <input
-                                            type="number"
-                                            value={form.amount}
-                                            onChange={e => setForm({ ...form, amount: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
-                                        />
-                                    </td>
-
-                                    <td className="px-3 py-2">
-                                        <select
-                                            value={form.type}
-                                            onChange={e => setForm({ ...form, type: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
-                                        >
-                                            {Object.entries(FineTypeSettings).map(([key, val]) => (
-                                                <option key={key} value={key}>{val.label}</option>
-                                            ))}
-                                        </select>
-                                    </td>
-
-
-
-                                    {/* <td className="px-3 py-2 flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={form.name}
-                                            onChange={e => setForm({ ...form, name: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
-                                        />
-                                    </td> */}
-
-                                    <td className="px-3 py-2">
-                                        <select
-                                            value={form.user_id}
-                                            onChange={e => setForm({ ...form, user_id: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
-                                        >
-                                            <option value="">-</option>
-                                            {users.map(p => (
-                                                <option key={p.id} value={p.id}>{p.name}</option>
-                                            ))}
-                                        </select>
-                                    </td>
-
-                                    <td className="px-3 py-2">
                                         <select
                                             value={form.project_id}
                                             onChange={e => setForm({ ...form, project_id: e.target.value })}
@@ -484,9 +387,41 @@ export default function FineIndex({ fines, projects, users, filters }: Props) {
                                         </select>
                                     </td>
 
+                                    <td className="px-3 py-2">
+                                        <select
+                                            value={form.user_id}
+                                            onChange={e => setForm({ ...form, user_id: e.target.value })}
+                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                        >
+                                            <option value="">-</option>
+                                            {users.map(u => (
+                                                <option key={u.id} value={u.id}>{u.name}</option>
+                                            ))}
+                                        </select>
+                                    </td>
+
+                                    <td className="px-3 py-2 text-right">
+                                        <input
+                                            type="number"
+                                            value={form.amount}
+                                            onChange={e => setForm({ ...form, amount: e.target.value })}
+                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                        />
+                                    </td>
+
+                                    <td className="px-3 py-2 text-right">
+                                        <input
+                                            type="text"
+                                            value={form.comment}
+                                            onChange={e => setForm({ ...form, comment: e.target.value })}
+                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                        />
+                                    </td>
+
+                                    
                                     <td className="px-3 py-2 text-right">
                                         <button
-                                            onClick={saveNewFine}
+                                            onClick={saveNewBonus}
                                             className="px-3 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 text-sm"
                                         >
                                             Save
