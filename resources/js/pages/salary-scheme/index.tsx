@@ -1,9 +1,10 @@
 import AppLayout from '@/layouts/app-layout';
 import { Head, router } from '@inertiajs/react';
-import { useRef, useState } from 'react';
+import { JSX, useRef, useState } from 'react';
 import { type BreadcrumbItem } from '@/types';
 import { Calendar, Minimize } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { isFieldVisible, isFieldVisibleForm } from '@/lib/salarySchemeIsFieldVisible';
 
 
 type Project = { id: number; name: string };
@@ -66,7 +67,7 @@ type Filters = {
 
 type SalaryScheme = {
     id: number;
-    date: Date;
+    date: string;
     value: number;
     type: SalarySchemeTypeEnum,
     min?: number;
@@ -92,6 +93,10 @@ type Props = {
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Salary schemes', href: '/salary-scheme' },
 ];
+
+
+
+
 
 export default function SalarySchemeIndex({ salarySchemes, projects, users, filters }: Props) {
     const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -134,7 +139,7 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
     const [rows, setRows] = useState(() => 
         salarySchemes.map(k => ({
             ...k,
-            date: new Date(k.date),
+            date: new Date(k.date).toISOString().split('T')[0],
             id: k.id,
             type: k.type,
             value_type: k.value_type,
@@ -142,10 +147,8 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
             value: k.value,
             min: k.min,
             max: k.max,
-            project: projects.find(p => p.id === k.project_id),
             project_id: k.project_id,
             user_id: k.user_id,
-            user: users.find(u => u.id === k.user_id)
         }))
     );
 
@@ -153,7 +156,7 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
     const saveRow = async (row: SalaryScheme) => {
         const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
 
-        const response = await fetch(`/api/salaryScheme/${row.id}`, {
+        const response = await fetch(`/api/salary-scheme/${row.id}`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -166,7 +169,7 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
         const data = await response.json();
 
         if (response.ok) {
-            toast.success('SalaryScheme updated successfully');
+            toast.success('Salary scheme updated successfully');
         }
         else {
             toast.error(data.message);
@@ -205,7 +208,7 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
     const saveNewSalaryScheme = async () => {
         const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
 
-        const response = await fetch('/api/salaryScheme', {
+        const response = await fetch('/api/salary-scheme', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -220,6 +223,7 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
         if (response.ok) {
 
             const newRows = [
+                ...rows,
                 {
                     ...data.salaryScheme,
                     date: data.salaryScheme.date,
@@ -232,7 +236,6 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
                     min: data.salaryScheme.min,
                     max: data.salaryScheme.max,
                 },
-                ...rows
             ]
 
             setRows(newRows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
@@ -252,6 +255,19 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
         }
     };
 
+    const renderCell = (row: any, field: string, content: JSX.Element) => {
+    return isFieldVisible(row, field)
+        ? content
+        : <td className="px-3 py-2"></td>;
+    };
+
+    const renderFormCell = (form: any, field: string, content: JSX.Element) => {
+    return isFieldVisibleForm(form, field)
+        ? content
+        : <td className="px-3 py-2"></td>;
+    };
+
+
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -264,7 +280,7 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
                         <div className="flex">
                             <h1 className="text-2xl font-semibold flex items-center gap-2">
                                 <Calendar className="w-6 h-6" />
-                                SalaryScheme
+                                Salary scheme
                             </h1>
                             
                             <button 
@@ -359,10 +375,12 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
                                     <th className="px-3 py-2 text-left">Date</th>
                                     <th className="px-3 py-2 text-left">Project</th>
                                     <th className="px-3 py-2 text-left">User</th>
-                                    <th className="px-3 py-2 text-left">Value</th>
+                                    <th className="px-3 py-2 text-left !w-[12%]">Value</th>
                                     <th className="px-3 py-2 text-left">Type</th>
                                     <th className="px-3 py-2 text-left">Position type</th>
-                                    <th className="px-3 py-2 text-left">Value type</th>
+                                    <th className="px-3 py-2 text-left !w-[7%]">$ / %</th>
+                                    <th className="px-3 py-2 text-left !w-[10%]">Min</th>
+                                    <th className="px-3 py-2 text-left !w-[10%]">Max</th>
                                     <th className="px-3 py-2 text-right"></th>
                                 </tr>
                             </thead>
@@ -374,21 +392,162 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
                                     <tr key={row.id} className="border-t border-neutral-300 dark:border-neutral-800">
 
                                         {/* DATE */}
+                                        {renderCell(row, "date", (
+                                            <td className="px-3 py-2">
+                                                <input
+                                                    type="date"
+                                                    value={new Date(row.date).toISOString().split('T')[0]}
+                                                    onChange={e => handleChange(row.id, "date", e.target.value)}
+                                                    className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                />
+                                            </td>
+                                        ))}
+
+                                        {/* PROJECT */}
+                                        {renderCell(row, "project_id", (
+                                            <td className="px-3 py-2">
+                                                <select
+                                                    value={row.project_id}
+                                                    onChange={e => handleChange(row.id, "project_id", e.target.value)}
+                                                    className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                >
+                                                    <option value="">-</option>
+                                                    {projects.map(p => (
+                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                        ))}
+
+                                        {/* USER */}
+                                        {renderCell(row, "user_id", (
+                                            <td className="px-3 py-2">
+                                                <select
+                                                    value={row.user_id}
+                                                    onChange={e => handleChange(row.id, "user_id", e.target.value)}
+                                                    className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                >
+                                                    <option value="">-</option>
+                                                    {users.map(u => (
+                                                        <option key={u.id} value={u.id}>{u.name}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                        ))}
+
+                                        {/* VALUE */}
+                                        {renderCell(row, "value", (
+                                            <td className="px-3 py-2">
+                                                <input
+                                                    type="number"
+                                                    value={row.value}
+                                                    onChange={e => handleChange(row.id, "value", e.target.value)}
+                                                    className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                />
+                                            </td>
+                                        ))}
+
+                                        {/* TYPE */}
+                                        {renderCell(row, "type", (
+                                            <td className="px-3 py-2">
+                                                <select
+                                                    value={row.type}
+                                                    onChange={e => handleChange(row.id, "type", e.target.value)}
+                                                    className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                >
+                                                    <option value="">-</option>
+                                                    <option value="FIX">FIX</option>
+                                                    <option value="PER_DEPOSIT">PER_DEPOSIT</option>
+                                                    <option value="PER_INCOME">PER_INCOME</option>
+                                                    <option value="FROM_SPEND">FROM_SPEND</option>
+                                                    <option value="FROM_TOTAL_PROFIT">FROM_TOTAL_PROFIT</option>
+                                                    <option value="FROM_TOTAL_INCOME">FROM_TOTAL_INCOME</option>
+                                                </select>
+                                            </td>
+                                        ))}
+
+                                        {/* POSITION TYPE */}
+                                        {renderCell(row, "position_type", (
+                                            <td className="px-3 py-2">
+                                                <select
+                                                    value={row.position_type}
+                                                    onChange={e => handleChange(row.id, "position_type", e.target.value)}
+                                                    className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                >
+                                                    <option value="">-</option>
+                                                    <option value="FD">FD</option>
+                                                    <option value="RD">RD</option>
+                                                    <option value="ALL">ALL</option>
+                                                    <option value="BUYING">BUYING</option>
+                                                    <option value="PERSONAL">PERSONAL</option>
+                                                </select>
+                                            </td>
+                                        ))}
+
+                                        {/* VALUE TYPE */}
+                                        {renderCell(row, "value_type", (
+                                            <td className="px-3 py-2">
+                                                <select
+                                                    value={row.value_type}
+                                                    onChange={e => handleChange(row.id, "value_type", e.target.value)}
+                                                    className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                >
+                                                    <option value="">-</option>
+                                                    <option value="percent">%</option>
+                                                    <option value="amount">$</option>
+                                                </select>
+                                            </td>
+                                        ))}
+
+                                        {/* MIN */}
+                                        {renderCell(row, "min", (
+                                            <td className="px-3 py-2">
+                                                <input
+                                                    type="number"
+                                                    value={row.min}
+                                                    onChange={e => handleChange(row.id, "min", e.target.value)}
+                                                    className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                />
+                                            </td>
+                                        ))}
+
+                                        {/* MAX */}
+                                        {renderCell(row, "max", (
+                                            <td className="px-3 py-2">
+                                                <input
+                                                    type="number"
+                                                    value={row.max}
+                                                    onChange={e => handleChange(row.id, "max", e.target.value)}
+                                                    className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                />
+                                            </td>
+                                        ))}
+
+                                    </tr>
+                                ))}
+
+                                {/* NEW EMPTY ROW */}
+                                <tr className="border-t border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/40">
+
+                                    {/* DATE */}
+                                    {renderFormCell(form, "date", (
                                         <td className="px-3 py-2">
                                             <input
                                                 type="date"
-                                                value={new Date(row.date).toISOString().split('T')[0]}
-                                                onChange={e => handleChange(row.id, "date", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                value={form.date}
+                                                onChange={e => setForm({ ...form, date: e.target.value })}
+                                                className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
                                             />
                                         </td>
+                                    ))}
 
-                                        {/* PROJECT */}
+                                    {/* PROJECT */}
+                                    {renderFormCell(form, "project_id", (
                                         <td className="px-3 py-2">
                                             <select
-                                                value={row.project_id}
-                                                onChange={e => handleChange(row.id, "project_id", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                value={form.project_id}
+                                                onChange={e => setForm({ ...form, project_id: e.target.value })}
+                                                className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
                                             >
                                                 <option value="">-</option>
                                                 {projects.map(p => (
@@ -396,13 +555,15 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
                                                 ))}
                                             </select>
                                         </td>
+                                    ))}
 
-                                        {/* USER */}
+                                    {/* USER */}
+                                    {renderFormCell(form, "user_id", (
                                         <td className="px-3 py-2">
                                             <select
-                                                value={row.user_id}
-                                                onChange={e => handleChange(row.id, "user_id", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                value={form.user_id}
+                                                onChange={e => setForm({ ...form, user_id: e.target.value })}
+                                                className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
                                             >
                                                 <option value="">-</option>
                                                 {users.map(u => (
@@ -410,23 +571,27 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
                                                 ))}
                                             </select>
                                         </td>
+                                    ))}
 
-                                        {/* VALUE */}
+                                    {/* VALUE */}
+                                    {renderFormCell(form, "value", (
                                         <td className="px-3 py-2">
                                             <input
                                                 type="number"
-                                                value={row.value}
-                                                onChange={e => handleChange(row.id, "value", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                value={form.value}
+                                                onChange={e => setForm({ ...form, value: e.target.value })}
+                                                className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
                                             />
                                         </td>
+                                    ))}
 
-                                        {/* TYPE */}
+                                    {/* TYPE */}
+                                    {renderFormCell(form, "type", (
                                         <td className="px-3 py-2">
                                             <select
-                                                value={row.type}
-                                                onChange={e => handleChange(row.id, "type", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                value={form.type}
+                                                onChange={e => setForm({ ...form, type: e.target.value })}
+                                                className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
                                             >
                                                 <option value="">-</option>
                                                 <option value="FIX">FIX</option>
@@ -437,13 +602,15 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
                                                 <option value="FROM_TOTAL_INCOME">FROM_TOTAL_INCOME</option>
                                             </select>
                                         </td>
+                                    ))}
 
-                                        {/* POSITION TYPE */}
+                                    {/* POSITION TYPE */}
+                                    {renderFormCell(form, "position_type", (
                                         <td className="px-3 py-2">
                                             <select
-                                                value={row.position_type}
-                                                onChange={e => handleChange(row.id, "position_type", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                value={form.position_type}
+                                                onChange={e => setForm({ ...form, position_type: e.target.value })}
+                                                className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
                                             >
                                                 <option value="">-</option>
                                                 <option value="FD">FD</option>
@@ -453,115 +620,48 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
                                                 <option value="PERSONAL">PERSONAL</option>
                                             </select>
                                         </td>
+                                    ))}
 
-                                        {/* VALUE TYPE */}
+                                    {/* VALUE TYPE */}
+                                    {renderFormCell(form, "value_type", (
                                         <td className="px-3 py-2">
                                             <select
-                                                value={row.value_type}
-                                                onChange={e => handleChange(row.id, "value_type", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                                value={form.value_type}
+                                                onChange={e => setForm({ ...form, value_type: e.target.value })}
+                                                className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
                                             >
                                                 <option value="">-</option>
-                                                <option value="percent">Percent</option>
-                                                <option value="amount">Amount</option>
+                                                <option value="percent">%</option>
+                                                <option value="amount">$</option>
                                             </select>
                                         </td>
+                                    ))}
 
-                                    </tr>
-                                ))}
+                                    {/* MIN */}
+                                    {renderFormCell(form, "min", (
+                                        <td className="px-3 py-2">
+                                            <input
+                                                type="number"
+                                                value={form.min}
+                                                onChange={e => setForm({ ...form, min: e.target.value })}
+                                                className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            />
+                                        </td>
+                                    ))}
 
-                                {/* NEW EMPTY ROW */}
-                                <tr className="border-t border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/40">
-                                    <td className="px-3 py-2">
-                                        <input
-                                            type="date"
-                                            value={form.date}
-                                            onChange={e => setForm({ ...form, date: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
-                                        />
-                                    </td>
+                                    {/* MAX */}
+                                    {renderFormCell(form, "max", (
+                                        <td className="px-3 py-2">
+                                            <input
+                                                type="number"
+                                                value={form.max}
+                                                onChange={e => setForm({ ...form, max: e.target.value })}
+                                                className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            />
+                                        </td>
+                                    ))}
 
-                                    <td className="px-3 py-2">
-                                        <select
-                                            value={form.project_id}
-                                            onChange={e => setForm({ ...form, project_id: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
-                                        >
-                                            <option value="">-</option>
-                                            {projects.map(p => (
-                                                <option key={p.id} value={p.id}>{p.name}</option>
-                                            ))}
-                                        </select>
-                                    </td>
-
-                                    <td className="px-3 py-2">
-                                        <select
-                                            value={form.user_id}
-                                            onChange={e => setForm({ ...form, user_id: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
-                                        >
-                                            <option value="">-</option>
-                                            {users.map(u => (
-                                                <option key={u.id} value={u.id}>{u.name}</option>
-                                            ))}
-                                        </select>
-                                    </td>
-
-                                    <td className="px-3 py-2">
-                                        <input
-                                            type="number"
-                                            value={form.value}
-                                            onChange={e => setForm({ ...form, value: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
-                                        />
-                                    </td>
-
-                                    <td className="px-3 py-2">
-                                        <select
-                                            value={form.type}
-                                            onChange={e => setForm({ ...form, type: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
-                                        >
-                                            <option value="">-</option>
-                                            <option value="FIX">FIX</option>
-                                            <option value="PER_DEPOSIT">PER_DEPOSIT</option>
-                                            <option value="PER_INCOME">PER_INCOME</option>
-                                            <option value="FROM_SPEND">FROM_SPEND</option>
-                                            <option value="FROM_TOTAL_PROFIT">FROM_TOTAL_PROFIT</option>
-                                            <option value="FROM_TOTAL_INCOME">FROM_TOTAL_INCOME</option>
-                                        </select>
-                                    </td>
-
-                                    <td className="px-3 py-2">
-                                        <select
-                                            value={form.position_type}
-                                            onChange={e => setForm({ ...form, position_type: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
-                                        >
-                                            <option value="">-</option>
-                                            <option value="FD">FD</option>
-                                            <option value="RD">RD</option>
-                                            <option value="ALL">ALL</option>
-                                            <option value="BUYING">BUYING</option>
-                                            <option value="PERSONAL">PERSONAL</option>
-                                        </select>
-                                    </td>
-
-                                    <td className="px-3 py-2">
-                                        <select
-                                            value={form.value_type}
-                                            onChange={e => setForm({ ...form, value_type: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
-                                        >
-                                            <option value="">-</option>
-                                            <option value="percent">Percent</option>
-                                            <option value="amount">Amount</option>
-                                        </select>
-                                    </td>
-
-
-
-                                    
+                                    {/* SAVE BUTTON ALWAYS VISIBLE */}
                                     <td className="px-3 py-2 text-right">
                                         <button
                                             onClick={saveNewSalaryScheme}
@@ -570,7 +670,9 @@ export default function SalarySchemeIndex({ salarySchemes, projects, users, filt
                                             Save
                                         </button>
                                     </td>
+
                                 </tr>
+
 
                             </tbody>
                         </table>

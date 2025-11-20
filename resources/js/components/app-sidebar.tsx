@@ -1,7 +1,7 @@
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
-import { Users, ShieldCheck, Lock, Calendar, Gift } from 'lucide-react';
+import { Users, ShieldCheck, Lock, Calendar, Gift, DollarSign } from 'lucide-react';
 import {
     Sidebar,
     SidebarContent,
@@ -16,7 +16,6 @@ import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
 import { BookOpen, Folder, LayoutGrid } from 'lucide-react';
 import AppLogo from './app-logo';
-import { useRoles } from '@/lib/useRoles';
 
 const mainNavItems: NavItem[] = [
     {
@@ -46,7 +45,7 @@ const mainNavItems: NavItem[] = [
         title: 'Deposits',
         href: '/deposits',
         
-        icon: Lock,
+        icon: DollarSign,
         roles: ['owner']
     },
     {
@@ -97,6 +96,11 @@ const mainNavItems: NavItem[] = [
         roles: ['owner']
 
     },
+    {
+        title: 'Salary schemes',
+        href: '/salary-scheme',
+        icon: DollarSign,
+    }
 ];
 
 const footerNavItems: NavItem[] = [

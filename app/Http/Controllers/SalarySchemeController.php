@@ -19,7 +19,7 @@ class SalarySchemeController extends Controller
             $filters['dateStart'] = now()->format('Y-m-d');
         }
 
-        $salaryScheme = SalaryScheme::with(['project', 'user'])
+        $salarySchemes = SalaryScheme::with(['project', 'user'])
             ->when($filters['dateStart'] ?? null, fn($q, $val) =>
                 $q->where('date', '>=', $val)
             )
@@ -36,7 +36,7 @@ class SalarySchemeController extends Controller
             ->get();
 
         return Inertia::render('salary-scheme/index', [
-            'salaryScheme' => $salaryScheme,
+            'salarySchemes' => $salarySchemes,
             'projects' => Project::select('id', 'name')->get(),
             'users' => User::select('id', 'name')
             ->get(),
@@ -58,6 +58,7 @@ class SalarySchemeController extends Controller
         $validated = $request->validate([
             'date'       => ['required', 'date'],
             'project_id' => ['required', 'exists:projects,id'],
+            'position_type' => ['required', 'string', 'max:255'],
             'user_id'    => ['nullable', 'exists:users,id'],
             'value' => ['required', 'numeric'],
             'min' => ['nullable', 'numeric'],
@@ -77,6 +78,7 @@ class SalarySchemeController extends Controller
         $validated = $request->validate([
             'date'       => ['required', 'date'],
             'project_id' => ['required', 'exists:projects,id'],
+            'position_type' => ['required', 'string', 'max:255'],
             'user_id'    => ['nullable', 'exists:users,id'],
             'value' => ['required', 'numeric'],
             'min' => ['nullable', 'numeric'],
@@ -109,6 +111,7 @@ class SalarySchemeController extends Controller
         $validated = $request->validate([
             'date'       => ['required', 'date'],
             'project_id' => ['required', 'exists:projects,id'],
+            'position_type' => ['required', 'string', 'max:255'],
             'user_id'    => ['nullable', 'exists:users,id'],
             'value' => ['required', 'numeric'],
             'min' => ['nullable', 'numeric'],
@@ -131,6 +134,7 @@ class SalarySchemeController extends Controller
         $validated = $request->validate([
             'date'       => ['required', 'date'],
             'project_id' => ['required', 'exists:projects,id'],
+            'position_type' => ['required', 'string', 'max:255'],
             'user_id'    => ['nullable', 'exists:users,id'],
             'value' => ['required', 'numeric'],
             'min' => ['nullable', 'numeric'],
