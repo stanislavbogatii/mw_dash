@@ -100,6 +100,13 @@ const mainNavItems: NavItem[] = [
         title: 'Salary schemes',
         href: '/salary-scheme',
         icon: DollarSign,
+        roles: ['owner']
+    },
+    {
+        title: 'My sales',
+        href: '/my-sales',
+        icon: DollarSign,
+        roles: ['sales_manager']
     }
 ];
 

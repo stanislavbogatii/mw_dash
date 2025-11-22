@@ -15,6 +15,8 @@ use App\Http\Controllers\FineController;
 use App\Http\Controllers\KpiController;
 use App\Http\Controllers\SpendController;
 use App\Http\Controllers\SalarySchemeController;
+use App\Http\Controllers\MySalesController;
+use App\Http\Controllers\DashboardController;
 
 Route::get('/', function () {
     return Inertia::render('welcome', [
@@ -23,9 +25,7 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 });
 
 Route::resource('projects', ProjectController::class);
@@ -38,6 +38,7 @@ Route::resource('kpi', KpiController::class);
 Route::resource('spend', SpendController::class);
 Route::resource('bonus', BonusController::class);
 Route::resource('salary-scheme', SalarySchemeController::class);
+Route::resource('my-sales', MySalesController::class);
 
 Route::middleware(['auth'])
     ->prefix('admin')
@@ -50,6 +51,31 @@ Route::middleware(['auth'])
         Route::resource('roles', RolesController::class)
             ->only(['index', 'store']);
     });
+
+
+
+// api
+Route::middleware(['auth'])->prefix('api')->group(function () {
+    Route::post('/deposits', [DepositController::class, 'storeApi']);
+    Route::patch('/deposits/{deposit}', [DepositController::class, 'updateApi']);
+    Route::post('/shifts', [ShiftController::class, 'storeApi']);
+    Route::patch('/shifts/{shift}', [ShiftController::class, 'updateApi']);
+    Route::post('/commissions/reorder', [CommissionController::class, 'reorderApi']);
+    Route::post('/currencies', [CurrencyController::class, 'storeApi']);
+    Route::patch('/currencies/{currency}', [CurrencyController::class, 'updateApi']);
+    Route::post('/fines', [FineController::class, 'storeApi']);
+    Route::patch('/fines/{fine}', [FineController::class, 'updateApi']);
+    Route::post('/kpi', [KpiController::class, 'storeApi']);
+    Route::patch('/kpi/{kpi}', [KpiController::class, 'updateApi']);
+    Route::post('/spend', [SpendController::class, 'storeApi']);
+    Route::patch('/spend/{spend}', [SpendController::class, 'updateApi']);
+    Route::post('/bonus', [BonusController::class, 'storeApi']);
+    Route::patch('/bonus/{spend}', [BonusController::class, 'updateApi']);
+    Route::post('/salary-scheme', [SalarySchemeController::class, 'storeApi']);
+    Route::patch('/salary-scheme/{salaryScheme}', [SalarySchemeController::class, 'updateApi']);
+    Route::post('/my-sales', [\App\Http\Controllers\MySalesController::class, 'storeApi']);
+});
+
 
 
 require __DIR__.'/settings.php';

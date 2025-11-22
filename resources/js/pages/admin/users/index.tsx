@@ -87,10 +87,11 @@ export default function UsersIndex({ users, roles, filters }: Props) {
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
                             {/* SEARCH */}
-                            <div className="flex flex-col">
+                            <div className="flex flex-col lg:col-span-1">
                                 <label className="text-sm font-medium mb-1">Name, email, username</label>
                                 <input
                                     type="text"
+                                    placeholder='Input text...'
                                     value={filterState.search ?? ""}
                                     onChange={e => updateFilter("search", e.target.value)}
                                     className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
@@ -98,7 +99,7 @@ export default function UsersIndex({ users, roles, filters }: Props) {
                             </div>
 
                             {/* ROLES AS TOGGLE BUTTONS */}
-                            <div className="flex flex-col">
+                            <div className="flex flex-col lg:col-span-3">
                                 <label className="text-sm font-medium mb-1">Roles</label>
 
                                 <div className="flex flex-wrap gap-2">
@@ -119,7 +120,7 @@ export default function UsersIndex({ users, roles, filters }: Props) {
 
                                                     updateFilter("roles", updated);
                                                 }}
-                                                className={`px-3 py-1 rounded-md border text-sm transition
+                                                className={`px-3 py-1 rounded-md border text-md transition
                                                     ${isActive
                                                         ? "bg-primary text-primary-foreground border-primary"
                                                         : "bg-white dark:bg-neutral-900 border-neutral-400 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
