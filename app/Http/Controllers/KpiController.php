@@ -111,7 +111,7 @@ class KpiController extends Controller
             'total_deposits' => ['nullable', 'numeric'],
             'fd_income' => ['nullable', 'numeric'],
             'rd_income' => ['nullable', 'numeric'],
-            'fd_deposits' => ['nullable'],
+            'fd_deposits' => ['nullable', 'numeric'],
             'rd_deposits' => ['nullable', 'numeric'],
         ]);
 
@@ -136,7 +136,7 @@ class KpiController extends Controller
             'total_deposits' => ['nullable', 'numeric'],
             'fd_income' => ['nullable', 'numeric'],
             'rd_income' => ['nullable', 'numeric'],
-            'fd_deposits' => ['nullable'],
+            'fd_deposits' => ['nullable', 'numeric'],
             'rd_deposits' => ['nullable', 'numeric'],
         ]);
 

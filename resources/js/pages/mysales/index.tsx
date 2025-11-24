@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import projects from '@/routes/projects';
 
 type Project = { id: number; name: string };
-type Commission = { id: number; name: string; order: number };
+type Commission = { id: number; name: string; order: number; project_id: number };
 
 const DepositTypeSettings = {
     first_deposit: { label: "FD", classes: "!bg-yellow-400" },
@@ -40,7 +40,7 @@ type Props = {
     deposits: Deposit[];
     projects: Project[];
     commissions: Commission[];
-    projectsByDate: Record<string, number[]>; // {"2025-01-20":[1,2,5], ...}
+    projectsByDate: Record<string, number[]>; 
     filters: any;
 };
 
@@ -120,7 +120,7 @@ export default function MySalesIndex({ deposits, commissions, projectsByDate, pr
 
     // NEW ROW
     const [form, setForm] = useState({
-        date: '',
+        date: new Date().toISOString().slice(0, 10),
         time: '',
         amount: '',
         status: '',
@@ -160,6 +160,8 @@ export default function MySalesIndex({ deposits, commissions, projectsByDate, pr
             toast.error(data.message);
         }
     };
+
+
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -268,6 +270,56 @@ export default function MySalesIndex({ deposits, commissions, projectsByDate, pr
                             </div>
                         </div>
 
+                        {/* STATISTICS */}
+                        <div className="border rounded-lg p-4 bg-neutral-50 dark:bg-neutral-800">
+
+                            <h2 className="font-semibold text-lg">Statistics</h2>
+
+                            <div className=" gap-4">
+
+                                <div className="flex flex-col w-full">
+                                    <span className="text-sm font-semibold w-full">TOTAL: 
+                                        &nbsp;{rows.length} (${rows.reduce((a, d) => a + +d.amount, 0)})&nbsp;&nbsp;&nbsp;
+
+                                        <span className="text-sm font-normal text-green-500 dark:text-green-400">
+                                            {rows.filter(d => d.status === "PAID").length} (${rows.filter(d => d.status === "PAID").reduce((a, d) => a + +d.amount, 0)})/
+                                        </span>
+                                        <span className="text-sm font-normal text-yellow-500 dark:text-yellow-400">
+                                            {rows.filter(d => d.status === "PENDING").length} (${rows.filter(d => d.status === "PENDING").reduce((a, d) => a + +d.amount, 0)})/
+                                        </span>
+                                        <span className="text-sm font-normal text-red-500 dark:text-red-400">
+                                            {rows.filter(d => d.status === "FAILED").length} (${rows.filter(d => d.status === "FAILED").reduce((a, d) => a + +d.amount, 0)})
+                                        </span>
+                                    </span>
+                                    <span className="text-sm font-semibold">FD: 
+                                        &nbsp;{rows.filter(d => d.type === "first_deposit").length} (${rows.filter(d => d.type === "first_deposit").reduce((a, d) => a + +d.amount, 0)})&nbsp;&nbsp;&nbsp;
+                                        <span className="text-sm font-normal text-green-500 dark:text-green-400">
+                                            {rows.filter(d => d.type === "first_deposit" && d.status === "PAID").length} (${rows.filter(d => d.type === "first_deposit" && d.status === "PAID").reduce((a, d) => a + +d.amount, 0)})/
+                                        </span>
+                                        <span className="text-sm font-normal text-yellow-500 dark:text-yellow-400">
+                                            {rows.filter(d => d.type === "first_deposit" && d.status === "PENDING").length} (${rows.filter(d => d.type === "first_deposit" && d.status === "PENDING").reduce((a, d) => a + +d.amount, 0)})/
+                                        </span>
+                                        <span className="text-sm font-normal text-red-500 dark:text-red-400">
+                                            {rows.filter(d => d.type === "first_deposit" && d.status === "FAILED").length} (${rows.filter(d => d.type === "first_deposit" && d.status === "FAILED").reduce((a, d) => a + +d.amount, 0)})
+                                        </span>
+                                    </span>
+
+                                    <span className="text-sm font-semibold">RD: 
+                                        &nbsp;{rows.filter(d => d.type === "recurring_deposit").length} (${rows.filter(d => d.type === "recurring_deposit").reduce((a, d) => a + +d.amount, 0)})&nbsp;&nbsp;&nbsp;
+                                        <span className="text-sm font-normal text-green-500 dark:text-green-400">
+                                            {rows.filter(d => d.type === "recurring_deposit" && d.status === "PAID").length} (${rows.filter(d => d.type === "recurring_deposit" && d.status === "PAID").reduce((a, d) => a + +d.amount, 0)})/
+                                        </span>
+                                        <span className="text-sm font-normal text-yellow-500 dark:text-yellow-400">
+                                            {rows.filter(d => d.type === "recurring_deposit" && d.status === "PENDING").length} (${rows.filter(d => d.type === "recurring_deposit" && d.status === "PENDING").reduce((a, d) => a + +d.amount, 0)})/
+                                        </span> 
+                                        <span className="text-sm font-normal text-red-500 dark:text-red-400">
+                                            {rows.filter(d => d.type === "recurring_deposit" && d.status === "FAILED").length}  (${rows.filter(d => d.type === "recurring_deposit" && d.status === "FAILED").reduce((a, d) => a + +d.amount, 0)})
+                                        </span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* TABLE */}
                         <table className="w-full text-sm border-collapse">
                             <thead>
@@ -319,7 +371,7 @@ export default function MySalesIndex({ deposits, commissions, projectsByDate, pr
                                                 className="w-full rounded border bg-white dark:bg-neutral-900 px-2 py-1"
                                             >
                                                 <option value="">-</option>
-                                                {commissions.map(c => (
+                                                {commissions.filter((c) => c.project_id === row.project_id).map(c => (
                                                     <option key={c.id} value={c.id}>{c.order} - {c.name}</option>
                                                 ))}
                                             </select>
@@ -353,7 +405,7 @@ export default function MySalesIndex({ deposits, commissions, projectsByDate, pr
                                         <td className="px-3 py-2">
                                             <select
                                                 value={row.project_id}
-                                                onChange={e => handleChange(row.id, "project_id", e.target.value)}
+                                                onChange={e => handleChange(row.id, "project_id", +e.target.value)}
                                                 className="w-full rounded border bg-white dark:bg-neutral-900 px-2 py-1"
                                             >
                                                 <option value="">-</option>
@@ -404,7 +456,7 @@ export default function MySalesIndex({ deposits, commissions, projectsByDate, pr
                                             className="w-full rounded border px-2 py-1 bg-white dark:bg-neutral-900"
                                         >
                                             <option value="">-</option>
-                                            {commissions.map(c => (
+                                            {commissions.filter((c) => c.project_id === form.project_id).map(c => (
                                                 <option key={c.id} value={c.id}>{c.order} - {c.name}</option>
                                             ))}
                                         </select>
@@ -438,7 +490,7 @@ export default function MySalesIndex({ deposits, commissions, projectsByDate, pr
                                     <td className="px-3 py-2">
                                         <select
                                             value={form.project_id}
-                                            onChange={e => setForm({ ...form, project_id: e.target.value })}
+                                            onChange={e => setForm({ ...form, project_id: +e.target.value })}
                                             className="w-full rounded border px-2 py-1 bg-white dark:bg-neutral-900"
                                             disabled={!form.date}
                                         >

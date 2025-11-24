@@ -13,6 +13,8 @@ class Spend extends Model
         'project_id',
         'user_id',
         'amount',
+        'dialogs',
+        'subscribers'
     ];
 
     public function project()

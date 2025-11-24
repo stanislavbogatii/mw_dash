@@ -17,6 +17,7 @@ use App\Http\Controllers\SpendController;
 use App\Http\Controllers\SalarySchemeController;
 use App\Http\Controllers\MySalesController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\MySpendsController;
 
 Route::get('/', function () {
     return Inertia::render('welcome', [
@@ -39,6 +40,7 @@ Route::resource('spend', SpendController::class);
 Route::resource('bonus', BonusController::class);
 Route::resource('salary-scheme', SalarySchemeController::class);
 Route::resource('my-sales', MySalesController::class);
+Route::resource('my-spends', MySpendsController::class);
 
 Route::middleware(['auth'])
     ->prefix('admin')
@@ -73,7 +75,10 @@ Route::middleware(['auth'])->prefix('api')->group(function () {
     Route::patch('/bonus/{spend}', [BonusController::class, 'updateApi']);
     Route::post('/salary-scheme', [SalarySchemeController::class, 'storeApi']);
     Route::patch('/salary-scheme/{salaryScheme}', [SalarySchemeController::class, 'updateApi']);
-    Route::post('/my-sales', [\App\Http\Controllers\MySalesController::class, 'storeApi']);
+    Route::post('/my-sales', [MySalesController::class, 'storeApi']);
+    Route::post('/my-sales/{mySales}', [MySalesController::class, 'updateApi']);
+    Route::post('/my-spends', [MySpendsController::class, 'storeApi']);
+    Route::patch('/my-spends/{mySpend}', [MySpendsController::class, 'updateApi']);
 });
 
 

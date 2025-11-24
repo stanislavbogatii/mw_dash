@@ -106,7 +106,13 @@ const mainNavItems: NavItem[] = [
         title: 'My sales',
         href: '/my-sales',
         icon: DollarSign,
-        roles: ['sales_manager']
+        roles: ['sales_manager', 'owner']
+    },
+    {
+        title: 'My spends',
+        href: '/my-spends',
+        icon: Lock,
+        roles: ['buyier', 'owner']
     }
 ];
 

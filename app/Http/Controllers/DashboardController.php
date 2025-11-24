@@ -2,49 +2,27 @@
 
 namespace App\Http\Controllers;
 use Laravel\Fortify\Features;
-use App\Models\User;
 use App\Models\Deposit;
 use App\Models\Spend;
 use App\Models\Shift;
+use Illuminate\Http\Request;
 use App\Models\Project;
+use App\Models\Kpi;
+use App\Models\User;
+use App\Services\DashboardDataService;
 
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $today = now()->format('Y-m-d');
+        $date = $request->input('date', now()->format('Y-m-d'));
 
-        $deposits = Deposit::with([
-            'user:id,name,username',
-            'project:id,name',
-        ])
-        ->where('date', $today)
-        ->get();
+        $data = DashboardDataService::for($request->user())
+            ->date($date)
+            ->get();
 
-        $spends = Spend::with([
-            'user:id,name,username',
-            'project:id,name',
-        ])
-        ->where('date', $today)
-        ->get();
-
-        $shifts = Shift::with([
-            'user:id,name,username',
-            'project:id,name',
-        ])
-        ->where('date', $today)
-        ->get();
-
-        $projects = Project::select('id', 'name')->get();
-
-        return Inertia::render('dashboard', [
-            'canRegister' => Features::enabled(Features::registration()),
-            'deposits' => $deposits,
-            'spends' => $spends,
-            'projects' => $projects,
-            'shifts' => $shifts
-        ]);
+        return Inertia::render('dashboard', $data);
     }
 }

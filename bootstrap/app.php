@@ -15,13 +15,18 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+
+        // ⬇⬇⬇ AICI SE ADAUGĂ EXCLUDEREA CSRF
+        $middleware->validateCsrfTokens(except: ['api/*']);
 
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
+
         $middleware->alias([
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,

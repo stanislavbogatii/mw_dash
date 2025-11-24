@@ -34,7 +34,6 @@ enum SalarySchemePositionTypeEnum {
     ALL = 'ALL',
     PERSONAL = 'PERSONAL',
 }
-// position type end
 
 // value type start
 enum SalarySchemeValueTypeEnum {
@@ -66,9 +65,9 @@ const salarySchemePositionTypeActiveFields = {
         'value', 
         'type', 
         'position_type', 
-        'value_type',
+        'value_type', 
         'min', 
-        'max'
+        'max' 
     ],
     [SalarySchemePositionTypeEnum.RD]: [
         'date', 
@@ -77,9 +76,8 @@ const salarySchemePositionTypeActiveFields = {
         'type', 
         'position_type', 
         'value_type',
-
         'min', 
-        'max'
+        'max' 
     ],
     [SalarySchemePositionTypeEnum.BUYING]: [
         'date', 

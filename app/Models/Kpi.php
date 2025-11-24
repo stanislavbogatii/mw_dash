@@ -22,6 +22,13 @@ class Kpi extends Model
         'rd_deposits',
     ];
 
+    protected $casts = [
+        'total_income'   => 'float',
+        'total_spend'    => 'float',
+        'fd_income'      => 'float',
+        'rd_income'      => 'float',
+    ];
+
     public function project()
     {
         return $this->belongsTo(Project::class);
