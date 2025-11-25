@@ -1,15 +1,9 @@
 <?php
 
 namespace App\Http\Controllers;
-use Laravel\Fortify\Features;
-use App\Models\Deposit;
-use App\Models\Spend;
-use App\Models\Shift;
 use Illuminate\Http\Request;
-use App\Models\Project;
-use App\Models\Kpi;
-use App\Models\User;
-use App\Services\DashboardDataService;
+use App\Services\Dashboard\DashboardResolver;
+
 
 use Inertia\Inertia;
 
@@ -19,10 +13,12 @@ class DashboardController extends Controller
     {
         $date = $request->input('date', now()->format('Y-m-d'));
 
-        $data = DashboardDataService::for($request->user())
-            ->date($date)
-            ->get();
+        $provider = DashboardResolver::resolve($request->user());
 
-        return Inertia::render('dashboard', $data);
+        return Inertia::render(
+            $provider->getView(),
+            $provider->getData($request->user(), $date)
+        );
     }
+
 }

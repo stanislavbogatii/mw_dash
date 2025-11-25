@@ -2,7 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { Head, router } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 import { type BreadcrumbItem } from '@/types';
-import { Calendar } from 'lucide-react';
+import { Calendar, Check, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 
@@ -17,12 +17,19 @@ type Filters = {
 
 type Bonus = {
     id: number;
-    date: Date;
+    date: string;
     project_id: number;
     comment: string;
     user_id: number;
     amount: number;
 }
+
+type EditableBonus = Omit<Bonus, 'project_id' | 'user_id' | 'amount' | 'date'> & {
+    project_id: number | '';
+    user_id: number | '';
+    amount: string;
+    date: string;
+};
 
 type User = {
     id: number;
@@ -78,23 +85,34 @@ export default function BonusIndex({ bonus, projects, users, filters }: Props) {
     };
 
 
-    const [rows, setRows] = useState(() => 
+    const [rows, setRows] = useState<EditableBonus[]>(() => 
         bonus.map(k => ({
             ...k,
-            date: new Date(k.date),
-            id: k.id,
-            comment: k.comment,
-            project: projects.find(p => p.id === k.project_id),
-            project_id: k.project_id,
-            user_id: k.user_id,
-            amount: k.amount,
-            user: users.find(u => u.id === k.user_id)
+            date: k.date ? new Date(k.date).toISOString().split('T')[0] : "",
+            project_id: k.project_id ?? '',
+            user_id: k.user_id ?? '',
+            amount: k.amount?.toString() ?? '',
+            comment: k.comment ?? '',
         }))
     );
+    const [editingRowId, setEditingRowId] = useState<number | null>(null);
+    const sheetInputClasses =
+        "w-full border-none bg-transparent px-1 py-0.5 text-[11px] text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-primary/40";
+    const cellTextClasses =
+        "block px-1 py-0.5 text-[11px] font-medium text-neutral-900 dark:text-neutral-100";
+    const filterFieldClasses =
+        "w-full border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100";
 
 
-    const saveRow = async (row: Bonus) => {
+    const saveRow = async (row: EditableBonus) => {
         const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
+
+        const payload = {
+            ...row,
+            project_id: row.project_id === "" ? null : row.project_id,
+            user_id: row.user_id === "" ? null : row.user_id,
+            amount: row.amount === "" ? null : Number(row.amount),
+        };
 
         const response = await fetch(`/api/bonus/${row.id}`, {
             method: 'PATCH',
@@ -103,34 +121,51 @@ export default function BonusIndex({ bonus, projects, users, filters }: Props) {
                 'X-CSRF-TOKEN': csrf,
                 'Accept': 'application/json', 
             },
-            body: JSON.stringify(row)
+            body: JSON.stringify(payload)
         });
 
         const data = await response.json();
 
         if (response.ok) {
             toast.success('Bonus updated successfully');
+            return true;
         }
-        else {
-            toast.error(data.message);
+
+        toast.error(data.message);
+        return false;
+    };
+
+    const saveRowChanges = async (rowId: number) => {
+        const currentRow = rows.find(r => r.id === rowId);
+        if (!currentRow) return;
+
+        const success = await saveRow(currentRow);
+        if (success) {
+            setEditingRowId(null);
         }
     };
 
-    const timers: Record<number, any> = {};
-
-    const triggerSave = (row: any) => {
-        clearTimeout(timers[row.id]);
-        timers[row.id] = setTimeout(() => saveRow(row), 600); 
+    const findProjectName = (id: number | '') => {
+        if (!id) return '—';
+        return projects.find(p => p.id === Number(id))?.name ?? '—';
     };
 
-    const handleChange = (rowId: number, field: string, value: any) => {
+    const findUserName = (id: number | '') => {
+        if (!id) return '—';
+        return users.find(u => u.id === Number(id))?.name ?? '—';
+    };
+
+    const activateRowEditing = (rowId: number) => setEditingRowId(rowId);
+
+    const toggleRowEditing = (rowId: number) => {
+        setEditingRowId(prev => (prev === rowId ? null : rowId));
+    };
+
+    const handleChange = (rowId: number, field: keyof EditableBonus, value: any) => {
         const updatedRows = rows.map(r =>
             r.id === rowId ? { ...r, [field]: value } : r
         );
         setRows(updatedRows);
-
-        const changedRow = updatedRows.find(r => r.id === rowId);
-        triggerSave(changedRow!);
     };
 
     // new bonus form
@@ -145,6 +180,13 @@ export default function BonusIndex({ bonus, projects, users, filters }: Props) {
     const saveNewBonus = async () => {
         const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
 
+        const payload = {
+            ...form,
+            project_id: form.project_id ? Number(form.project_id) : null,
+            user_id: form.user_id ? Number(form.user_id) : null,
+            amount: form.amount ? Number(form.amount) : null,
+        };
+
         const response = await fetch('/api/bonus', {
             method: 'POST',
             headers: {
@@ -152,7 +194,7 @@ export default function BonusIndex({ bonus, projects, users, filters }: Props) {
                 'X-CSRF-TOKEN': csrf,
                 'Accept': 'application/json', 
             },
-            body: JSON.stringify(form)
+            body: JSON.stringify(payload)
         });
 
         const data = await response.json();
@@ -162,11 +204,11 @@ export default function BonusIndex({ bonus, projects, users, filters }: Props) {
             const newRows = [
                 {
                     ...data.bonus,
-                    date: data.bonus.date,
-                    comment: data.bonus.comment,
-                    project_id: data.bonus.project_id,
-                    user_id: data.bonus.user_id,
-                    amount: data.bonus.amount
+                    date: data.bonus.date ? new Date(data.bonus.date).toISOString().split('T')[0] : "",
+                    project_id: data.bonus.project_id ?? '',
+                    user_id: data.bonus.user_id ?? '',
+                    amount: data.bonus.amount?.toString() ?? '',
+                    comment: data.bonus.comment ?? '',
                 },
                 ...rows
             ]
@@ -189,60 +231,53 @@ export default function BonusIndex({ bonus, projects, users, filters }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Bonus" />
 
-            <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-                <div className="relative min-h-[400px] overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border bg-white dark:bg-neutral-900">
-                    <div className="relative p-6 space-y-6">
+            <div className="flex h-full flex-1 flex-col gap-2 overflow-x-auto p-2">
+                <div className="relative min-h-[400px] border border-neutral-200 dark:border-sidebar-border bg-white dark:bg-neutral-900">
+                    <div className="relative p-3 space-y-4">
 
-                        <div className="flex">
-                            <h1 className="text-2xl font-semibold flex items-center gap-2">
-                                <Calendar className="w-6 h-6" />
+                        <div className="flex items-center gap-2">
+                            <h1 className="flex items-center gap-1 text-lg font-semibold">
+                                <Calendar className="h-5 w-5" />
                                 Bonus
                             </h1>
-                            
                             <button 
                                 onClick={scrollToBottom}
-                                className="ml-auto px-3 py-1 bg-primary text-primary-foreground rounded hover:opacity-90 text-sm"
+                                className="ml-auto border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
                             >
                                 ↓ Go to bottom
                             </button>
-
                         </div>
-                        {/* FILTERS PANEL */}
-                        <div className="border rounded-lg p-4 bg-neutral-50 dark:bg-neutral-800 mb-6 space-y-4">
 
-                            <h2 className="font-semibold text-lg">Filters</h2>
+                        <div className="mb-2 space-y-2 border border-neutral-200 bg-white p-3 text-xs dark:border-neutral-800 dark:bg-neutral-900">
+                            <h2 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Filters</h2>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-
-                                {/* DATE START */}
-                                <div className="flex flex-col">
-                                    <label className="text-sm font-medium mb-1">Date Start</label>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">Date Start</label>
                                     <input
                                         type="date"
                                         value={filterState.dateStart || ""}
                                         onChange={e => updateFilter("dateStart", e.target.value)}
-                                        className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
+                                        className={filterFieldClasses}
                                     />
                                 </div>
 
-                                {/* DATE END */}
-                                <div className="flex flex-col">
-                                    <label className="text-sm font-medium mb-1">Date End</label>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">Date End</label>
                                     <input
                                         type="date"
                                         value={filterState.dateEnd || ""}
                                         onChange={e => updateFilter("dateEnd", e.target.value)}
-                                        className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
+                                        className={filterFieldClasses}
                                     />
                                 </div>
 
-                                {/* PROJECT */}
-                                <div className="flex flex-col">
-                                    <label className="text-sm font-medium mb-1">Project</label>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">Project</label>
                                     <select
                                         value={filterState.project_id || ""}
                                         onChange={e => updateFilter("project_id", e.target.value)}
-                                        className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
+                                        className={filterFieldClasses}
                                     >
                                         <option value="">All</option>
                                         {projects.map(p => (
@@ -251,13 +286,12 @@ export default function BonusIndex({ bonus, projects, users, filters }: Props) {
                                     </select>
                                 </div>
 
-                                {/* USER */}
-                                <div className="flex flex-col">
-                                    <label className="text-sm font-medium mb-1">User</label>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">User</label>
                                     <select
                                         value={filterState.user_id || ""}
                                         onChange={e => updateFilter("user_id", e.target.value)}
-                                        className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
+                                        className={filterFieldClasses}
                                     >
                                         <option value="">All</option>
                                         {users.map(u => (
@@ -267,118 +301,159 @@ export default function BonusIndex({ bonus, projects, users, filters }: Props) {
                                 </div>
                             </div>
 
-                            {/* BUTTONS */}
-                            <div className="flex gap-3 pt-2">
+                            <div className="flex gap-2 pt-1 text-xs">
                                 <button
                                     onClick={applyFilters}
-                                    className="px-4 py-2 bg-primary text-primary-foreground rounded hover:opacity-90"
+                                    className="border border-primary bg-primary/90 px-3 py-1 text-white hover:bg-primary dark:border-primary dark:text-neutral-900"
                                 >
                                     Apply
                                 </button>
 
                                 <button
                                     onClick={() => router.visit('/bonus')}
-                                    className="px-4 py-2 bg-neutral-300 dark:bg-neutral-700 rounded hover:opacity-70"
+                                    className="border border-neutral-300 bg-white px-3 py-1 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
                                 >
                                     Reset
                                 </button>
                             </div>
                         </div>
 
-                        <table className="w-full text-sm border-collapse">
+                        <table className="w-full border border-neutral-200 border-collapse text-[11px] dark:border-neutral-800">
                             <thead>
-                                <tr className="bg-neutral-100 dark:bg-neutral-800">
-                                    <th className="px-3 py-2 text-left">Date</th>
-                                    <th className="px-3 py-2 text-left">Project</th>
-                                    <th className="px-3 py-2 text-left">User</th>
-                                    <th className="px-3 py-2 text-right">Amount</th>
-                                    <th className="px-3 py-2 text-right">Comment</th>
-                                    <th className="px-3 py-2 text-right"></th>
+                                <tr className="bg-neutral-50 text-[10px] uppercase tracking-wide text-neutral-500 dark:bg-neutral-900/60 dark:text-neutral-400">
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">Edit</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">Date</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">Project</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">User</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">Amount</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">Comment</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-right font-semibold dark:border-neutral-800">Save</th>
                                 </tr>
                             </thead>
 
                             <tbody>
-
-                                {/* EXISTING SHIFTS (editable) */}
                                 {rows.map(row => (
-                                    <tr key={row.id} className="border-t border-neutral-300 dark:border-neutral-800">
-
-                                        {/* DATE */}
-                                        <td className="px-3 py-2">
-                                            <input
-                                                type="date"
-                                                value={new Date(row.date).toISOString().split('T')[0]}
-                                                onChange={e => handleChange(row.id, "date", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
-                                            />
-                                        </td>
-
-                                        {/* PROJECT */}
-                                        <td className="px-3 py-2">
-                                            <select
-                                                value={row.project_id}
-                                                onChange={e => handleChange(row.id, "project_id", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                    <tr 
+                                        key={row.id}
+                                        onDoubleClick={() => activateRowEditing(row.id)}
+                                        className={`${editingRowId === row.id ? "bg-emerald-50/70 dark:bg-emerald-950/30" : ""}`}
+                                    >
+                                        <td className="border border-neutral-200 p-0 text-center dark:border-neutral-800">
+                                            <button
+                                                onClick={() => toggleRowEditing(row.id)}
+                                                className="mx-auto flex h-6 w-6 items-center justify-center border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
                                             >
-                                                <option value="">-</option>
-                                                {projects.map(p => (
-                                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                                ))}
-                                            </select>
+                                                {editingRowId === row.id ? (
+                                                    <Check className="h-3.5 w-3.5" />
+                                                ) : (
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                )}
+                                            </button>
                                         </td>
 
-                                        {/* USER */}
-                                        <td className="px-3 py-2">
-                                            <select
-                                                value={row.user_id}
-                                                onChange={e => handleChange(row.id, "user_id", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                        <td className="border border-neutral-200 p-0 dark:border-neutral-800">
+                                            {editingRowId === row.id ? (
+                                                <input
+                                                    type="date"
+                                                    value={row.date}
+                                                    onChange={e => handleChange(row.id, "date", e.target.value)}
+                                                    className={sheetInputClasses}
+                                                />
+                                            ) : (
+                                                <span className={cellTextClasses}>{row.date || '—'}</span>
+                                            )}
+                                        </td>
+
+                                        <td className="border border-neutral-200 p-0 dark:border-neutral-800">
+                                            {editingRowId === row.id ? (
+                                                <select
+                                                    value={row.project_id === "" ? "" : String(row.project_id)}
+                                                    onChange={e => handleChange(row.id, "project_id", e.target.value === "" ? "" : Number(e.target.value))}
+                                                    className={sheetInputClasses}
+                                                >
+                                                    <option value="">-</option>
+                                                    {projects.map(p => (
+                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <span className={cellTextClasses}>{findProjectName(row.project_id)}</span>
+                                            )}
+                                        </td>
+
+                                        <td className="border border-neutral-200 p-0 dark:border-neutral-800">
+                                            {editingRowId === row.id ? (
+                                                <select
+                                                    value={row.user_id === "" ? "" : String(row.user_id)}
+                                                    onChange={e => handleChange(row.id, "user_id", e.target.value === "" ? "" : Number(e.target.value))}
+                                                    className={sheetInputClasses}
+                                                >
+                                                    <option value="">-</option>
+                                                    {users.map(u => (
+                                                        <option key={u.id} value={u.id}>{u.name}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <span className={cellTextClasses}>{findUserName(row.user_id)}</span>
+                                            )}
+                                        </td>
+
+                                        <td className="border border-neutral-200 p-0 dark:border-neutral-800">
+                                            {editingRowId === row.id ? (
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={row.amount}
+                                                    onChange={e => handleChange(row.id, "amount", e.target.value)}
+                                                    className={sheetInputClasses}
+                                                />
+                                            ) : (
+                                                <span className={cellTextClasses}>{row.amount || '—'}</span>
+                                            )}
+                                        </td>
+
+                                        <td className="border border-neutral-200 p-0 dark:border-neutral-800">
+                                            {editingRowId === row.id ? (
+                                                <input
+                                                    type="text"
+                                                    value={row.comment}
+                                                    onChange={e => handleChange(row.id, "comment", e.target.value)}
+                                                    className={sheetInputClasses}
+                                                />
+                                            ) : (
+                                                <span className={cellTextClasses}>{row.comment || '—'}</span>
+                                            )}
+                                        </td>
+
+                                        <td className="border border-neutral-200 p-0 dark:border-neutral-800">
+                                            <button
+                                                onClick={() => saveRowChanges(row.id)}
+                                                disabled={editingRowId !== row.id}
+                                                className="dark:text-white flex h-full w-full items-center justify-center bg-primary/80 px-2 py-1 text-[10px] uppercase tracking-wide text-white hover:bg-primary dark:text-neutral-900 disabled:cursor-not-allowed disabled:bg-neutral-200 disabled:text-neutral-500 dark:disabled:bg-neutral-800"
                                             >
-                                                <option value="">-</option>
-                                                {users.map(u => (
-                                                    <option key={u.id} value={u.id}>{u.name}</option>
-                                                ))}
-                                            </select>
-                                        </td>
-
-                                        {/* AMOUNT */}
-                                        <td className="px-3 py-2 text-right">
-                                            <input
-                                                type="number"
-                                                value={row.amount}
-                                                onChange={e => handleChange(row.id, "amount", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
-                                            />
-                                        </td>
-
-                                        {/* COMMENT */}
-                                        <td className="px-3 py-2 text-right">
-                                            <input
-                                                type="text"
-                                                value={row.comment}
-                                                onChange={e => handleChange(row.id, "comment", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
-                                            />
+                                                Save
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
 
-                                {/* NEW EMPTY ROW */}
-                                <tr className="border-t border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/40">
-                                    <td className="px-3 py-2">
+                                <tr className="bg-neutral-50 text-xs dark:bg-neutral-900/40">
+                                    <td className="border border-neutral-200 p-0 text-center text-[11px] uppercase text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">New</td>
+                                
+                                    <td className="border border-neutral-200 p-0 dark:border-neutral-800">
                                         <input
                                             type="date"
                                             value={form.date}
                                             onChange={e => setForm({ ...form, date: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            className={sheetInputClasses}
                                         />
                                     </td>
 
-                                    <td className="px-3 py-2">
+                                    <td className="border border-neutral-200 p-0 dark:border-neutral-800">
                                         <select
                                             value={form.project_id}
                                             onChange={e => setForm({ ...form, project_id: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            className={sheetInputClasses}
                                         >
                                             <option value="">-</option>
                                             {projects.map(p => (
@@ -387,11 +462,11 @@ export default function BonusIndex({ bonus, projects, users, filters }: Props) {
                                         </select>
                                     </td>
 
-                                    <td className="px-3 py-2">
+                                    <td className="border border-neutral-200 p-0 dark:border-neutral-800">
                                         <select
                                             value={form.user_id}
                                             onChange={e => setForm({ ...form, user_id: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            className={sheetInputClasses}
                                         >
                                             <option value="">-</option>
                                             {users.map(u => (
@@ -400,41 +475,41 @@ export default function BonusIndex({ bonus, projects, users, filters }: Props) {
                                         </select>
                                     </td>
 
-                                    <td className="px-3 py-2 text-right">
+                                    <td className="border border-neutral-200 p-0 dark:border-neutral-800">
                                         <input
                                             type="number"
+                                            step="0.01"
                                             value={form.amount}
                                             onChange={e => setForm({ ...form, amount: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            className={sheetInputClasses}
                                         />
                                     </td>
 
-                                    <td className="px-3 py-2 text-right">
+                                    <td className="border border-neutral-200 p-0 dark:border-neutral-800">
                                         <input
                                             type="text"
                                             value={form.comment}
                                             onChange={e => setForm({ ...form, comment: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            className={sheetInputClasses}
                                         />
                                     </td>
 
-                                    
-                                    <td className="px-3 py-2 text-right">
+                                    <td className="border border-neutral-200 p-0 dark:border-neutral-800">
                                         <button
                                             onClick={saveNewBonus}
-                                            className="px-3 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 text-sm"
+                                            className="flex h-full w-full items-center justify-center border border-primary bg-primary px-3 py-1 text-[11px] uppercase tracking-wide text-white hover:opacity-90 dark:text-neutral-900"
                                         >
                                             Save
                                         </button>
                                     </td>
                                 </tr>
-
                             </tbody>
                         </table>
-                        <div className="w-full flex" ref={bottomRef}>
+
+                        <div className="flex w-full pt-2" ref={bottomRef}>
                             <button 
                                 onClick={scrollToTop}
-                                className="ml-auto px-3 py-1 bg-primary text-primary-foreground rounded hover:opacity-90 text-sm"
+                                className="ml-auto border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
                             >
                                 ↑ Go to top
                             </button>
@@ -442,7 +517,6 @@ export default function BonusIndex({ bonus, projects, users, filters }: Props) {
                     </div>
                 </div>
             </div>
-
         </AppLayout>
     );
 }

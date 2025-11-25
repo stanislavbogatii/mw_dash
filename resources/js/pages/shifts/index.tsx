@@ -1,8 +1,8 @@
 import AppLayout from '@/layouts/app-layout';
-import { Head, Link, router } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
+import { Head, router } from '@inertiajs/react';
+import { useRef, useState } from 'react';
 import { type BreadcrumbItem } from '@/types';
-import { Calendar } from 'lucide-react';
+import { Calendar, Check, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 type User = { id: number; name: string };
@@ -19,7 +19,7 @@ const ShiftTypeSettings = {
         label: "FD",
         classes: "!bg-yellow-400"
     },
-    recurring_deposit: { 
+    recurring_deposit: {
         label: "RD",
         classes: "!bg-red-400"
     },
@@ -37,6 +37,16 @@ type Shift = {
     type: ShiftType;
     user: User | null;
     project: Project | null;
+};
+
+type EditableShift = {
+    id: number;
+    date: string;
+    start_time: string;
+    end_time: string;
+    type: ShiftType;
+    user_id: number | '';
+    project_id: number | '';
 };
 
 type Filters = {
@@ -98,23 +108,43 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
         });
     };
 
-
-    const [rows, setRows] = useState(() => 
+    const [rows, setRows] = useState<EditableShift[]>(() =>
         shifts.map(s => ({
-            ...s,
-            start_time: s.start_time?.slice(0, 5) ?? "",
-            end_time: s.end_time?.slice(0, 5) ?? "",
-            user_id: s.user?.id ?? "",
-            project_id: s.project?.id ?? "",
+            id: s.id,
+            date: s.date ? new Date(s.date).toISOString().split('T')[0] : '',
+            start_time: s.start_time?.slice(0, 5) ?? '',
+            end_time: s.end_time?.slice(0, 5) ?? '',
+            user_id: s.user?.id ?? '',
+            project_id: s.project?.id ?? '',
             type: s.type,
         }))
     );
 
+    const [editingRowId, setEditingRowId] = useState<number | null>(null);
 
-    const saveRow = async (row: Shift) => {
+    const sheetInputClasses =
+        "w-full border-none bg-transparent px-1 py-0.5 text-[11px] text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-primary/40";
+    const cellTextClasses =
+        "block px-1 py-0.5 text-[11px] font-medium text-neutral-900 dark:text-neutral-100";
+    const filterFieldClasses =
+        "w-full border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-primary/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100";
+
+    const findUserName = (id: number | '') => {
+        if (!id) return '—';
+        return users.find(u => u.id === Number(id))?.name ?? '—';
+    };
+
+    const findProjectName = (id: number | '') => {
+        if (!id) return '—';
+        return projects.find(p => p.id === Number(id))?.name ?? '—';
+    };
+
+    const saveRow = async (row: EditableShift) => {
         const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
         const payload = {
             ...row,
+            user_id: row.user_id === '' ? null : Number(row.user_id),
+            project_id: row.project_id === '' ? null : Number(row.project_id),
             start_time: row.start_time ? row.start_time + ":00" : null,
             end_time: row.end_time ? row.end_time + ":00" : null,
         };
@@ -124,7 +154,7 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': csrf,
-                'Accept': 'application/json', 
+                'Accept': 'application/json',
             },
             body: JSON.stringify(payload)
         });
@@ -133,35 +163,37 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
 
         if (response.ok) {
             toast.success('Shift updated successfully');
+            return true;
         }
-        else {
-            toast.error(data.message);
+        toast.error(data.message);
+        return false;
+    };
+
+    const handleChange = (rowId: number, field: keyof EditableShift, value: any) => {
+        setRows(prev => prev.map(r => r.id === rowId ? { ...r, [field]: value } : r));
+    };
+
+    const saveRowChanges = async (rowId: number) => {
+        const currentRow = rows.find(r => r.id === rowId);
+        if (!currentRow) return;
+
+        const success = await saveRow(currentRow);
+        if (success) {
+            setEditingRowId(null);
         }
     };
 
-    const timers: Record<number, any> = {};
-
-    const triggerSave = (row: any) => {
-        clearTimeout(timers[row.id]);
-        timers[row.id] = setTimeout(() => saveRow(row), 600); 
+    const toggleRowEditing = (rowId: number) => {
+        setEditingRowId(prev => (prev === rowId ? null : rowId));
     };
 
-    const handleChange = (rowId: number, field: string, value: any) => {
-        const updatedRows = rows.map(r =>
-            r.id === rowId ? { ...r, [field]: value } : r
-        );
-        setRows(updatedRows);
+    const activateRowEditing = (rowId: number) => setEditingRowId(rowId);
 
-        const changedRow = updatedRows.find(r => r.id === rowId);
-        triggerSave(changedRow!);
-    };
-
-    // new shift form
     const [form, setForm] = useState({
         date: '',
         start_time: '',
         end_time: '',
-        type: 'FD' as any,
+        type: ShiftType.FD,
         user_id: '',
         project_id: ''
     });
@@ -170,9 +202,10 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
         const csrf = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
         const payload = {
             ...form,
+            user_id: form.user_id === '' ? null : Number(form.user_id),
+            project_id: form.project_id === '' ? null : Number(form.project_id),
             start_time: form.start_time ? form.start_time + ":00" : null,
             end_time: form.end_time ? form.end_time + ":00" : null,
-            type: form.type, 
         };
 
         const response = await fetch('/api/shifts', {
@@ -180,7 +213,7 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': csrf,
-                'Accept': 'application/json', 
+                'Accept': 'application/json',
             },
             body: JSON.stringify(payload)
         });
@@ -188,91 +221,86 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
         const data = await response.json();
 
         if (response.ok) {
+            const formattedRow: EditableShift = {
+                id: data.shift.id,
+                date: data.shift.date ? new Date(data.shift.date).toISOString().split('T')[0] : '',
+                start_time: data.shift.start_time?.slice(0, 5) ?? '',
+                end_time: data.shift.end_time?.slice(0, 5) ?? '',
+                user_id: data.shift.user_id ?? '',
+                project_id: data.shift.project_id ?? '',
+                type: data.shift.type,
+            };
 
-            const newRows = [
-                {
-                    ...data.shift,
-                    start_time: data.shift.start_time?.slice(0, 5) ?? "",
-                    end_time: data.shift.end_time?.slice(0, 5) ?? "",
-                    user_id: data.shift.user_id,
-                    project_id: data.shift.project_id,
-                },
-                ...rows
-            ]
-
-            setRows(newRows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+            const getDateValue = (value: string) => value ? new Date(value).getTime() : 0;
+            setRows(prev => [...prev, formattedRow].sort((a, b) => getDateValue(a.date) - getDateValue(b.date)));
 
             setForm({
                 date: '',
                 start_time: '',
                 end_time: '',
-                type: 'FD' as any,
+                type: ShiftType.FD,
                 user_id: '',
                 project_id: ''
             });
             toast.success('Shift created successfully');
+        } else {
+            toast.error(data.message);
         }
     };
-
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Shifts" />
 
-            <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-                <div className="relative min-h-[400px] overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border bg-white dark:bg-neutral-900">
-                    <div className="relative p-6 space-y-6">
+            <div className="flex h-full flex-1 flex-col gap-2 overflow-x-auto p-2">
+                <div className="relative min-h-[400px] border border-neutral-200 dark:border-sidebar-border bg-white dark:bg-neutral-900">
+                    <div className="relative p-3 space-y-4">
 
-                        <div className="flex">
-                            <h1 className="text-2xl font-semibold flex items-center gap-2">
-                                <Calendar className="w-6 h-6" />
+                        <div className="flex items-center gap-2">
+                            <h1 className="flex items-center gap-1 text-lg font-semibold">
+                                <Calendar className="h-5 w-5" />
                                 Shifts
                             </h1>
-                            
-                            <button 
+
+                            <button
                                 onClick={scrollToBottom}
-                                className="ml-auto px-3 py-1 bg-primary text-primary-foreground rounded hover:opacity-90 text-sm"
+                                className="ml-auto border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
                             >
                                 ↓ Go to bottom
                             </button>
-
                         </div>
-                        {/* FILTERS PANEL */}
-                        <div className="border rounded-lg p-4 bg-neutral-50 dark:bg-neutral-800 mb-6 space-y-4">
 
-                            <h2 className="font-semibold text-lg">Filters</h2>
+                        <div className="mb-2 space-y-2 border border-neutral-200 bg-white p-3 text-xs dark:border-neutral-800 dark:bg-neutral-900">
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                            <h2 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Filters</h2>
 
-                                {/* DATE START */}
-                                <div className="flex flex-col">
-                                    <label className="text-sm font-medium mb-1">Date Start</label>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">Date Start</label>
                                     <input
                                         type="date"
                                         value={filterState.dateStart || ""}
                                         onChange={e => updateFilter("dateStart", e.target.value)}
-                                        className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
+                                        className={filterFieldClasses}
                                     />
                                 </div>
 
-                                {/* DATE END */}
-                                <div className="flex flex-col">
-                                    <label className="text-sm font-medium mb-1">Date End</label>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">Date End</label>
                                     <input
                                         type="date"
                                         value={filterState.dateEnd || ""}
                                         onChange={e => updateFilter("dateEnd", e.target.value)}
-                                        className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
+                                        className={filterFieldClasses}
                                     />
                                 </div>
 
-                                {/* USER */}
-                                <div className="flex flex-col">
-                                    <label className="text-sm font-medium mb-1">User</label>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">User</label>
                                     <select
                                         value={filterState.user_id || ""}
                                         onChange={e => updateFilter("user_id", e.target.value)}
-                                        className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
+                                        className={filterFieldClasses}
                                     >
                                         <option value="">All</option>
                                         {users.map(u => (
@@ -281,13 +309,12 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
                                     </select>
                                 </div>
 
-                                {/* PROJECT */}
-                                <div className="flex flex-col">
-                                    <label className="text-sm font-medium mb-1">Project</label>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">Project</label>
                                     <select
                                         value={filterState.project_id || ""}
                                         onChange={e => updateFilter("project_id", e.target.value)}
-                                        className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
+                                        className={filterFieldClasses}
                                     >
                                         <option value="">All</option>
                                         {projects.map(p => (
@@ -296,13 +323,12 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
                                     </select>
                                 </div>
 
-                                {/* TYPE */}
-                                <div className="flex flex-col">
-                                    <label className="text-sm font-medium mb-1">Type</label>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">Type</label>
                                     <select
                                         value={filterState.type || ""}
                                         onChange={e => updateFilter("type", e.target.value)}
-                                        className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
+                                        className={filterFieldClasses}
                                     >
                                         <option value="">All</option>
                                         <option value="first_deposit">FD</option>
@@ -311,13 +337,12 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
                                     </select>
                                 </div>
 
-                                {/* STATUS */}
-                                <div className="flex flex-col">
-                                    <label className="text-sm font-medium mb-1">Status</label>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase text-neutral-500 dark:text-neutral-400">Status</label>
                                     <select
                                         value={filterState.status || ""}
                                         onChange={e => updateFilter("status", e.target.value)}
-                                        className="border rounded px-2 py-1 bg-white dark:bg-neutral-900"
+                                        className={filterFieldClasses}
                                     >
                                         <option value="">All</option>
                                         <option value="pending">Pending</option>
@@ -325,159 +350,209 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
                                         <option value="failed">Failed</option>
                                     </select>
                                 </div>
-
                             </div>
 
-                            {/* BUTTONS */}
-                            <div className="flex gap-3 pt-2">
+                            <div className="flex gap-2 pt-1 text-xs">
                                 <button
                                     onClick={applyFilters}
-                                    className="px-4 py-2 bg-primary text-primary-foreground rounded hover:opacity-90"
+                                    className="border border-primary bg-primary/90 px-3 py-1 text-white hover:bg-primary dark:border-primary dark:text-neutral-900"
                                 >
                                     Apply
                                 </button>
 
                                 <button
                                     onClick={() => router.visit('/shifts')}
-                                    className="px-4 py-2 bg-neutral-300 dark:bg-neutral-700 rounded hover:opacity-70"
+                                    className="border border-neutral-300 bg-white px-3 py-1 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
                                 >
                                     Reset
                                 </button>
                             </div>
                         </div>
 
-                        <table className="w-full text-sm border-collapse">
+                        <table className="w-full border border-neutral-200 border-collapse text-[11px] dark:border-neutral-800">
                             <thead>
-                                <tr className="bg-neutral-100 dark:bg-neutral-800">
-                                    <th className="px-3 py-2 text-left">Date</th>
-                                    <th className="px-3 py-2 text-left">Start Time - End Time</th>
-                                    <th className="px-3 py-2 text-left">Type</th>
-                                    <th className="px-3 py-2 text-left">User</th>
-                                    <th className="px-3 py-2 text-left">Project</th>
-                                    <th className="px-3 py-2 text-right"></th>
+                                <tr className="bg-neutral-50 text-[10px] uppercase tracking-wide text-neutral-500 dark:bg-neutral-900/60 dark:text-neutral-400">
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">Edit</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">Date</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">Start</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">End</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">Type</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">User</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-left font-semibold dark:border-neutral-800">Project</th>
+                                    <th className="border border-neutral-200 px-1 py-1 text-right font-semibold dark:border-neutral-800">Save</th>
                                 </tr>
                             </thead>
 
                             <tbody>
-
-                                {/* EXISTING SHIFTS (editable) */}
                                 {rows.map(row => (
-                                    <tr key={row.id} className="border-t border-neutral-300 dark:border-neutral-800">
-
-                                        {/* DATE */}
-                                        <td className="px-3 py-2">
-                                            <input
-                                                type="date"
-                                                value={new Date(row.date).toISOString().split('T')[0]}
-                                                onChange={e => handleChange(row.id, "date", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
-                                            />
-                                        </td>
-
-                                        {/* TIME */}
-                                        <td className={"px-3 py-2 flex flex-row gap-3"}>
-                                            <input
-                                                type="time"
-                                                value={row.start_time}
-                                                onChange={e => handleChange(row.id, "start_time", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
-                                            /> 
-                                            <input
-                                                type="time"
-                                                value={row.end_time}
-                                                onChange={e => handleChange(row.id, "end_time", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
-                                            /> 
-                                        </td>
-
-                                        {/* TYPE */}
-                                        <td className={"px-3 py-2 "}>
-                                            <select
-                                                value={row.type}
-                                                onChange={e => handleChange(row.id, "type", e.target.value)}
-                                                className={"w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 " + ShiftTypeSettings[row.type].classes}
+                                    <tr
+                                        key={row.id}
+                                        onDoubleClick={() => activateRowEditing(row.id)}
+                                        className={`${editingRowId === row.id ? "bg-emerald-50/70 dark:bg-emerald-950/30" : ""}`}
+                                    >
+                                        <td className="border border-neutral-200 p-0 text-center dark:border-neutral-800">
+                                            <button
+                                                onClick={() => toggleRowEditing(row.id)}
+                                                className="mx-auto flex h-6 w-6 items-center justify-center border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
                                             >
-                                                <option value="first_deposit">FD</option>
-                                                <option value="recurring_deposit">RD</option>
-                                                <option value="all_shifts">ALL</option>
-                                            </select>
+                                                {editingRowId === row.id ? (
+                                                    <Check className="h-3.5 w-3.5" />
+                                                ) : (
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                )}
+                                            </button>
                                         </td>
 
-                                        {/* USER */}
-                                        <td className="px-3 py-2">
-                                            <select
-                                                value={row.user_id}
-                                                onChange={e => handleChange(row.id, "user_id", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
+                                        <td className="border border-neutral-200 p-0 dark:border-neutral-800">
+                                            {editingRowId === row.id ? (
+                                                <input
+                                                    type="date"
+                                                    value={row.date}
+                                                    onChange={e => handleChange(row.id, "date", e.target.value)}
+                                                    className={sheetInputClasses}
+                                                />
+                                            ) : (
+                                                <span className={cellTextClasses}>{row.date || '—'}</span>
+                                            )}
+                                        </td>
+
+                                        <td className="border border-neutral-200 p-0 dark:border-neutral-800">
+                                            {editingRowId === row.id ? (
+                                                <input
+                                                    type="time"
+                                                    value={row.start_time}
+                                                    onChange={e => handleChange(row.id, "start_time", e.target.value)}
+                                                    className={sheetInputClasses}
+                                                />
+                                            ) : (
+                                                <span className={cellTextClasses}>{row.start_time || '—'}</span>
+                                            )}
+                                        </td>
+
+                                        <td className="border border-neutral-200 p-0 dark:border-neutral-800">
+                                            {editingRowId === row.id ? (
+                                                <input
+                                                    type="time"
+                                                    value={row.end_time}
+                                                    onChange={e => handleChange(row.id, "end_time", e.target.value)}
+                                                    className={sheetInputClasses}
+                                                />
+                                            ) : (
+                                                <span className={cellTextClasses}>{row.end_time || '—'}</span>
+                                            )}
+                                        </td>
+
+                                        <td className="border border-neutral-200 p-0 dark:border-neutral-800">
+                                            {editingRowId === row.id ? (
+                                                <select
+                                                    value={row.type}
+                                                    onChange={e => handleChange(row.id, "type", e.target.value as ShiftType)}
+                                                    className={sheetInputClasses}
+                                                >
+                                                    {Object.entries(ShiftTypeSettings).map(([key, val]) => (
+                                                        <option key={key} value={key}>{val.label}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <span className={cellTextClasses}>{ShiftTypeSettings[row.type]?.label || row.type}</span>
+                                            )}
+                                        </td>
+
+                                        <td className="border border-neutral-200 p-0 dark:border-neutral-800">
+                                            {editingRowId === row.id ? (
+                                                <select
+                                                    value={row.user_id === '' ? '' : String(row.user_id)}
+                                                    onChange={e => handleChange(row.id, "user_id", e.target.value === '' ? '' : Number(e.target.value))}
+                                                    className={sheetInputClasses}
+                                                >
+                                                    <option value="">-</option>
+                                                    {users.map(u => (
+                                                        <option key={u.id} value={u.id}>{u.name}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <span className={cellTextClasses}>{findUserName(row.user_id)}</span>
+                                            )}
+                                        </td>
+
+                                        <td className="border border-neutral-200 p-0 dark:border-neutral-800">
+                                            {editingRowId === row.id ? (
+                                                <select
+                                                    value={row.project_id === '' ? '' : String(row.project_id)}
+                                                    onChange={e => handleChange(row.id, "project_id", e.target.value === '' ? '' : Number(e.target.value))}
+                                                    className={sheetInputClasses}
+                                                >
+                                                    <option value="">-</option>
+                                                    {projects.map(p => (
+                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <span className={cellTextClasses}>{findProjectName(row.project_id)}</span>
+                                            )}
+                                        </td>
+
+                                        <td className="border border-neutral-200 p-0 text-right dark:border-neutral-800">
+                                            <button
+                                                onClick={() => saveRowChanges(row.id)}
+                                                disabled={editingRowId !== row.id}
+                                                className="dark:text-white flex h-full w-full items-center justify-center bg-primary/80 px-2 py-1 text-[10px] uppercase tracking-wide text-white hover:bg-primary dark:text-neutral-900 disabled:cursor-not-allowed disabled:bg-neutral-200 disabled:text-neutral-500 dark:disabled:bg-neutral-800"
                                             >
-                                                <option value="">-</option>
-                                                {users.map(u => (
-                                                    <option key={u.id} value={u.id}>{u.name}</option>
-                                                ))}
-                                            </select>
+                                                Save
+                                            </button>
                                         </td>
-
-                                        {/* PROJECT */}
-                                        <td className="px-3 py-2">
-                                            <select
-                                                value={row.project_id}
-                                                onChange={e => handleChange(row.id, "project_id", e.target.value)}
-                                                className="w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1"
-                                            >
-                                                <option value="">-</option>
-                                                {projects.map(p => (
-                                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                                ))}
-                                            </select>
-                                        </td>
-
-                                        <td></td>
                                     </tr>
                                 ))}
 
-                                {/* NEW EMPTY ROW */}
-                                <tr className="border-t border-neutral-300 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/40">
-                                    <td className="px-3 py-2">
+                                <tr className="bg-neutral-50 text-xs dark:bg-neutral-900/40">
+                                    <td className="border border-neutral-200 p-0 text-center text-[11px] uppercase text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                                        New
+                                    </td>
+
+                                    <td className="border border-neutral-200 p-0 dark:border-neutral-800">
                                         <input
                                             type="date"
                                             value={form.date}
                                             onChange={e => setForm({ ...form, date: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            className={sheetInputClasses}
                                         />
                                     </td>
 
-                                    <td className="px-3 py-2 flex gap-2">
+                                    <td className="border border-neutral-200 p-0 dark:border-neutral-800">
                                         <input
                                             type="time"
                                             value={form.start_time}
                                             onChange={e => setForm({ ...form, start_time: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            className={sheetInputClasses}
                                         />
+                                    </td>
+
+                                    <td className="border border-neutral-200 p-0 dark:border-neutral-800">
                                         <input
                                             type="time"
                                             value={form.end_time}
                                             onChange={e => setForm({ ...form, end_time: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            className={sheetInputClasses}
                                         />
                                     </td>
 
-                                    <td className="px-3 py-2">
+                                    <td className="border border-neutral-200 p-0 dark:border-neutral-800">
                                         <select
                                             value={form.type}
-                                            onChange={e => setForm({ ...form, type: e.target.value as any })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            onChange={e => setForm({ ...form, type: e.target.value as ShiftType })}
+                                            className={sheetInputClasses}
                                         >
-                                            <option value="FD">FD</option>
-                                            <option value="RD">RD</option>
-                                            <option value="ALL">ALL</option>
+                                            {Object.entries(ShiftTypeSettings).map(([key, val]) => (
+                                                <option key={key} value={key}>{val.label}</option>
+                                            ))}
                                         </select>
                                     </td>
 
-                                    <td className="px-3 py-2">
+                                    <td className="border border-neutral-200 p-0 dark:border-neutral-800">
                                         <select
                                             value={form.user_id}
                                             onChange={e => setForm({ ...form, user_id: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            className={sheetInputClasses}
                                         >
                                             <option value="">-</option>
                                             {users.map(u => (
@@ -486,11 +561,11 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
                                         </select>
                                     </td>
 
-                                    <td className="px-3 py-2">
+                                    <td className="border border-neutral-200 p-0 dark:border-neutral-800">
                                         <select
                                             value={form.project_id}
                                             onChange={e => setForm({ ...form, project_id: e.target.value })}
-                                            className="w-full rounded border border-neutral-300 dark:border-sidebar-border bg-white dark:bg-neutral-900 px-2 py-1"
+                                            className={sheetInputClasses}
                                         >
                                             <option value="">-</option>
                                             {projects.map(p => (
@@ -499,22 +574,22 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
                                         </select>
                                     </td>
 
-                                    <td className="px-3 py-2 text-right">
+                                    <td className="border border-neutral-200 p-0 text-right dark:border-neutral-800">
                                         <button
                                             onClick={saveNewShift}
-                                            className="px-3 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 text-sm"
+                                            className="flex h-full w-full items-center justify-center border border-primary bg-primary px-3 py-1 text-[11px] uppercase tracking-wide text-white hover:opacity-90 dark:text-neutral-900"
                                         >
                                             Save
                                         </button>
                                     </td>
                                 </tr>
-
                             </tbody>
                         </table>
-                        <div className="w-full flex" ref={bottomRef}>
-                            <button 
+
+                        <div className="flex w-full pt-2" ref={bottomRef}>
+                            <button
                                 onClick={scrollToTop}
-                                className="ml-auto px-3 py-1 bg-primary text-primary-foreground rounded hover:opacity-90 text-sm"
+                                className="ml-auto border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
                             >
                                 ↑ Go to top
                             </button>
@@ -522,7 +597,6 @@ export default function ShiftsIndex({ shifts, users, projects, filters }: Props)
                     </div>
                 </div>
             </div>
-
         </AppLayout>
     );
 }

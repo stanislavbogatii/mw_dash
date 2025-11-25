@@ -21,20 +21,15 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: dashboard().url },
 ];
 
-type Labels = {
-    [key: string]: string;
-}
-
 type Props = {
     deposits: Deposit[];
     spends: Spend[];
     shifts: Shift[];
     projects: Project[];
     kpi: Kpi[];
-    labels: Labels
 }
 
-export default function Dashboard({ deposits, spends, shifts, projects, kpi, labels } : Props) {
+export default function Dashboard({ deposits, spends, shifts, projects, kpi } : Props) {
     const { hasAnyRole, user } = useRoles();
 
     // Read initial date from URL
@@ -103,7 +98,6 @@ export default function Dashboard({ deposits, spends, shifts, projects, kpi, lab
 
                 {hasAnyRole(["buyier", "owner", "sales_manager"]) && (
                     <ProjectMetrics
-                        label={labels['projects']}
                         projects={projects}
                         depositsByProject={depositsByProject}
                         spendsByProject={spendsByProject}
@@ -113,7 +107,6 @@ export default function Dashboard({ deposits, spends, shifts, projects, kpi, lab
 
                 {hasAnyRole(['owner', 'buyier', 'sales_manager']) && (
                     <TodayShifts
-                        label={labels['shifts']}
                         projects={projects}
                         shiftsByProject={shiftsByProject}
                     />
@@ -121,7 +114,6 @@ export default function Dashboard({ deposits, spends, shifts, projects, kpi, lab
 
                 {hasAnyRole(["buyier", "owner", "sales_manager"]) && (
                     <KpiOverview
-                        label={labels['kpi']}
                         projects={projects}
                         kpiByProject={kpiByProject}
                     />

@@ -11,13 +11,12 @@ type Props = {
     depositsByProject: Record<number, Deposit[]>;
     spendsByProject: Record<number, Spend[]>;
     shiftsByProject: Record<number, Shift[]>;
-    label: string;
 };
 
-export default function ProjectMetrics({ projects, depositsByProject, spendsByProject, shiftsByProject, label }: Props) {
+export default function ProjectMetrics({ projects, depositsByProject, spendsByProject, shiftsByProject }: Props) {
     return (
         <div className="rounded-xl border p-6 bg-white/50 dark:bg-neutral-900/50">
-            <h2 className="text-xl font-semibold mb-6">{label}</h2>
+            <h2 className="text-xl font-semibold mb-6">Projects Metrics</h2>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {projects.map(project => (

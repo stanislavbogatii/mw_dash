@@ -3,13 +3,12 @@
 type Props = {
     projects: any[];
     kpiByProject: Record<number, any[]>;
-    label: string
 };
 
-export default function KpiOverview({ projects, kpiByProject, label }: Props) {
+export default function KpiOverview({ projects, kpiByProject }: Props) {
     return (
         <div className="rounded-xl border p-6 bg-white/50 dark:bg-neutral-900/50">
-            <h2 className="text-xl font-semibold mb-6">{label}</h2>
+            <h2 className="text-xl font-semibold mb-6">KPI Overview</h2>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {projects.map(project => {

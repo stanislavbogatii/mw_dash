@@ -5,13 +5,12 @@ import ShiftCard from "./ShiftCard";
 type Props = {
     projects: any[];
     shiftsByProject: Record<number, any[]>;
-    label: string
 };
 
-export default function TodayShifts({ projects, shiftsByProject, label }: Props) {
+export default function TodayShifts({ projects, shiftsByProject }: Props) {
     return (
         <div className="rounded-xl border p-6 bg-white/50 dark:bg-neutral-900/50">
-            <h2 className="text-xl font-semibold mb-6">{label}</h2>
+            <h2 className="text-xl font-semibold mb-6">Today's Shifts</h2>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {projects.map(project => {

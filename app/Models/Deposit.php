@@ -42,4 +42,15 @@ class Deposit extends Model
     {
         return $this->belongsTo(Commission::class);
     }
+
+    public function withCurrency()
+    {
+        $currency = Currency::where('date', $this->date)
+        ->where('project_id', $this->project_id)
+        ->first();
+
+        $this->currency = $currency->amount;
+
+    }
+
 }
